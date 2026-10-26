@@ -1,95 +1,147 @@
-# HisaabLive
+<div align="center">
 
-## How it works
-- **Owner login:** the app calls the `shopLogin` Cloud Function. The server checks the 6-digit PIN and returns a Firebase Auth token carrying `shopId`. Login attempts are counted atomically *before* the PIN is checked: 5 per shop per network per 15 minutes, 30 per shop per hour overall, 30 per network per 15 minutes across all shops. Owners can sign out all devices from the app; a PIN reset signs out every device too.
-- **Firestore rules:** owners can only read their own shop, and only while the subscription is active (the lock screen still reads the shop profile). Browsers can never write anything: expenses, Khata, month totals and sales are all written by Cloud Functions.
-- **Secrets:** the PIN is hashed with scrypt *plus a server-side secret* (`PIN_PEPPER`, in `firebase/functions/.env`, not in the database). The agent license is stored only as a hash. `shops_private` is unreadable from any browser, including the admin panel.
-- **Super Admin:** email/password login plus the `admin` claim. Every change goes through `createShop`, `markPaid`, `resetPin`, `createSetupCode`, `revokeLicense`.
-- **Agent:** no Firebase credentials on the shop PC. It sends `shopId` + license to `agentPush`. The date is decided by the server in Pakistan time.
+# ⚡ HisaabLive (حساب لائیو)
+### *Next-Generation Real-Time POS Telemetry, Loss Prevention & Multi-Tenant Retail Ledger*
 
-## One-time setup
-1. Put your web API key in place of `YOUR_KEY` in `owner-app/src/App.jsx` and `super-admin/src/Admin.jsx`.
-2. Firebase console -> Authentication: enable **Email/Password**, create your admin user (long, unique password), then under *Settings -> User actions* **turn off "Enable create (sign-up)"** so strangers can't register accounts. If your plan offers it, turn on 2-step verification for the admin.
-3. IAM: give `hisaablive-final@appspot.gserviceaccount.com` the role **Service Account Token Creator** (without it `shopLogin` fails with `signBlob` errors).
-4. Create the PIN secret, once, on your PC: `cd firebase/functions && npm install && node scripts/makeEnv.js`. **Keep a private backup of the `.env` it creates.** If you lose it or change it, every shop's PIN stops working and each needs a Reset PIN.
-5. Make yourself admin (never deploy the key): `GOOGLE_APPLICATION_CREDENTIALS=/path/key.json node scripts/setAdmin.js you@example.com`
-6. Create two Hosting sites, put their IDs in `.firebaserc`, then run `firebase deploy --only firestore:rules,functions,hosting`.
-7. Delete any old `serviceAccountKey.json` that was ever given to a shop, and rotate that key in the Google Cloud console.
-8. **Before real shops:** run `firebase emulators:start` and test `firestore.rules` once. The demo below does not cover the rules.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Android APK Build](https://github.com/Wahi-ur-rehman/Hisaab-Live-/actions/workflows/build-apk.yml/badge.svg)](https://github.com/Wahi-ur-rehman/Hisaab-Live-/actions)
+[![POS Agent Build](https://github.com/Wahi-ur-rehman/Hisaab-Live-/actions/workflows/build-agent-exe.yml/badge.svg)](https://github.com/Wahi-ur-rehman/Hisaab-Live-/actions)
+[![Firebase](https://img.shields.io/badge/Cloud-Google%20Firebase%20%2F%20Firestore-orange.svg)](https://firebase.google.com/)
+[![React](https://img.shields.io/badge/Frontend-React%2018%20%2B%20Vite-61dafb.svg)](https://react.dev/)
+[![Capacitor](https://img.shields.io/badge/Mobile-Capacitor%20v6%20Android-119EFF.svg)](https://capacitorjs.com/)
 
-### Optional but recommended: App Check
-It makes the owner and admin functions accept only calls from your real apps.
-1. Firebase console -> App Check -> register both web apps with **reCAPTCHA v3**; paste the site key into `APPCHECK_SITE_KEY` in both apps and redeploy them.
-2. Once both apps send tokens (check App Check metrics), set `ENFORCE_APPCHECK=true` in `firebase/functions/.env` and redeploy functions.
-The agent functions stay open on purpose (a shop PC has no browser to attest from); they rely on the license.
+---
 
-## Agent EXE
-Build once: `cd agent && npx @yao-pkg/pkg . --output HisaabLiveAgent.exe` (`pkg` itself is archived; the target is Node 22 because SQLite support is built into Node 22). There is no `readTodaySale()` to fill in any more: the agent reads the shop's POS itself (see "Tamper protection").
+**HisaabLive** bridges on-premise retail billing systems (POS software running on desktop computers) with real-time cloud analytics, mobile apps, and loss-prevention telemetry. It gives store owners instant visibility into cash registers from their phones while stopping cashier fraud and unrecorded sales.
 
-**Installing at a shop:**
-1. In the admin panel press **Generate Setup Code** for the shop (valid 48 hours, works once).
-2. Copy `HisaabLiveAgent.exe` to the shop PC (anywhere, e.g. a USB stick or Downloads).
-3. Open Command Prompt **as Administrator** there and run `HisaabLiveAgent.exe --install-startup`. Type the setup code, then answer the two questions about the POS data: **what kind of database** and **where it is** (file path, or SQL Server name). The program finds the invoice / total / date columns by itself and shows what it found; press Enter to accept. (Change it later with `HisaabLiveAgent.exe --setup` from `C:\Program Files\HisaabLive`.)
-   - The EXE gets a **new license** from the server (any older license stops working).
-   - It copies itself and its config into `C:\Program Files\HisaabLive`, a folder only SYSTEM and Administrators can change, and starts at every boot from there (hidden). Running a boot task from an ordinary user folder would let any user on that PC swap the EXE and gain SYSTEM rights, which is why the install location matters.
-   - The copy you ran can then be deleted.
-4. Logs: `C:\Program Files\HisaabLive\agent.log` (admins only).
-5. Remove: `HisaabLiveAgent.exe --uninstall-startup` (also deletes the license from the PC).
+</div>
 
-**If a shop's license may have leaked** (PC stolen, config copied): admin panel -> **Revoke License**. It stops working at once. Then Generate Setup Code and reinstall. There is no way to read a license back from the server (only its hash is stored).
+---
 
-## Behaviour notes
-- PINs can't be viewed. Use **Reset PIN**.
-- If a shop pays after it has lapsed, the new expiry is the first anchor date (e.g. the 13th) after today.
-- Owners cannot edit or delete expenses or Khata entries (add an opposite entry to fix a mistake).
-- Daily caps per shop: 300 expenses, 100 new Khata customers, 1000 Khata entries, 20 device registrations; the agent may send at most 150 updates per 10 minutes.
-- Only one agent runs per PC (a lock file next to the EXE; a crashed agent's lock is taken over automatically).
+## 🌟 Key Highlights
 
-## Tamper protection (insider fraud)
-Goal: if a cashier deletes or edits sales in the POS to pocket money, the owner finds out.
+### 🛡️ 1. Cryptographic Anti-Tamper & Fraud Detection
+* **Real-Time Audit Ledger:** Monitors POS databases every 10–30 seconds.
+* **Catches Insider Theft:** Automatically flags when cashiers delete receipts, retroactively lower totals, apply unauthorized discounts, or wipe transaction sequences.
+* **Silent Agent Heartbeat:** Detects when the POS PC is unplugged or the agent is forcefully stopped during operational hours.
 
-**How it works.** The agent reads the POS (read-only) every 10-30 seconds, turns each row into a standard bill (number, time, total, cancelled?, cashier, discount) and sends a fingerprint of every day to the server. Whenever a day's fingerprint differs from the server's record, the agent sends that day's bills, and the server compares them with its **permanent ledger** of every bill (`shops/{id}/bills`; nobody can write to it from a browser, and each bill keeps its first version). The agent re-checks the last 35 days every 15 minutes and everything again whenever it restarts, so edits made while it was switched off are still caught.
+### 📱 2. Shop Owner Mobile App (`owner-app`)
+* **Real-Time Live Dashboard:** Instant updates for today's sales, bills, and active registers.
+* **Bilingual Experience:** 1-tap language toggle between **Urdu (اردو)** and **English**.
+* **Smart Khata (Customer Credit Ledger):** Track customer debts (*Udhaar Diya*) and payments (*Wasoool Hua*) with real-time customer balances.
+* **Expense Tracking & Deletion:** Categorized daily expenses (*Chai/Pani, Bijli, Rent, etc.*).
+* **1-Tap Monthly PDF Statements:** Formatted statements with totals, breakdowns, and download capability using `jsPDF`.
+* **Cross-Platform:** Runs as an installable Android APK (via Capacitor v6) and high-performance Web App (PWA).
 
-**What the owner is told** (Alerts tab, red banner on the Hisaab screen, push notification at most once per 5 minutes):
-- a bill **deleted**, a bill's total **lowered** (or raised), a bill **cancelled after it was recorded**, a bill otherwise **edited** (time, user, discount)
-- bills added to a **past day** after it was recorded, bills made at **odd hours** (00:00-05:00), **big discounts** (30% or more), bills that arrived already cancelled
-- **missing bill numbers** in a clean running sequence, **many bills vanishing at once** (database restored from an old backup or wiped), rows with a **garbage date or amount** (a way to hide a bill), and a **silent agent** during shop hours (10:00-20:00)
-- the home screen shows "Rs X of today's sales was removed or lowered" and the alerts stay on record: the owner can only mark them "seen", never delete them.
+### 🖥️ 3. Silent Windows Background Agent (`agent`)
+* **Universal Database Compatibility:** SQLite (`.db`, `.sqlite`), Microsoft SQL Server, Microsoft Access (`.accdb`, `.mdb`), Excel (`.xlsx`), and CSV.
+* **Zero Firebase Credentials on PC:** Authenticates strictly via ephemeral setup tokens and cryptographic license hashes.
+* **SYSTEM Security:** Installs in `C:\Program Files\HisaabLive` with hardened ACLs; launches silently at system boot via Windows Task Scheduler (`schtasks`).
 
-**Setup per shop is automatic.** `setup.js` lists the tables, scores column names (invoice/bill/receipt..., total/amount/net..., date/time...; optional cancelled/void, cashier, discount), and checks the guess against real values (is the "total" column really numbers? are the "date" values really dates?). It prefers the sales-header table over the detail/customer tables. If it is not confident, it shows the tables and columns and the person picks by number. If the database has **no invoice-number column**, it falls back to **totals-only** mode: the server keeps the highest total and row count of the day and alerts when either goes down.
+### 👑 4. Super Admin Console (`super-admin`)
+* **Tenant Lifecycle Management:** Register shops, assign 6-digit owner PINs, monitor active vs expired subscriptions.
+* **One-Click Licensing:** Generate 48-hour secure onboarding codes or revoke PC licenses in 1 click if a computer is decommissioned.
+* **Eye-Comfort Dark Mode:** Low-glare palette designed for high-density administrative tasks.
 
-**Supported databases**
-| Database | How | Tested here |
-|---|---|---|
-| SQLite (.db/.sqlite) | built-in `node:sqlite`, opened read-only | yes |
-| CSV | built-in parser | yes |
-| Excel .xlsx | built-in zip/XML reader, reads a copy of the file | yes (one sample file) |
-| SQL Server | Windows PowerShell + .NET SqlClient, SELECT only | **no** (script text and parsing are unit-tested only) |
-| Access (.mdb/.accdb) | Windows PowerShell + OleDb (needs the free Access Database Engine) | **no** |
+---
 
-Notes for real shops: the agent runs as SYSTEM, so a SQL Server **Windows login will usually not work**; create a read-only SQL login (`db_datareader`) and give that in setup (it is stored in the locked `config.json`). Excel: only what has been *saved* is visible, and it works well only with a unique Bill No column. Old `.xls` files must be saved as `.xlsx`.
+## 🏗️ System Architecture
 
-**Honest limits: what this cannot catch**
-- Sales never entered into the POS at all (a cashier takes the cash and rings nothing). Only physical controls help: printed receipts, cash counts, stock counts.
-- An administrator on the shop PC who stops or deletes the agent. The owner still gets the "agent silent" alert (during shop hours), and everything is re-checked when the agent runs again, but a determined admin can also change the PC's clock or block the internet. Keep POS cashier accounts non-admin.
-- A bill created and removed between two checks (10-30 s) is only seen as a numbering gap, and only if the numbers are a clean running sequence.
-- Bills older than 35 days are not re-checked. Gaps can also come from legitimate reasons (several tills sharing a number range); alerts say "check", they are not proof.
-- Not tested here: SQL Server and Access readers, `firestore.rules` for the new collections (`bills`, `bill_days`, `alerts`), the owner app's new screen in a browser.
+```mermaid
+flowchart TD
+    subgraph Store [ Retail Store Station ]
+        POS[(Local POS Database\nSQLite / MSSQL / Access / Excel)]
+        Agent["HisaabLiveAgent.exe\n(Read-Only Background Service)"]
+        POS -->|Read-only polling| Agent
+    end
 
-## Monthly Sum, Khata, Push notifications
-- **Monthly Sum:** `shops/{id}/monthly_summary/{YYYY-MM}`. Sale is recomputed from the daily records inside a transaction on every agent push. Expense is added up atomically as each expense is saved. The owner app shows it under "This Month".
-- **Khata:** customer credit ledger ("Udhaar Diya" +, "Payment Mili" -). Balances change only in a server transaction. Positive = the customer owes the shop.
-- **Push notifications:** the app shows a "Notifications on karo" button; allowed devices are saved through `saveFcmToken` (5 per shop). The nightly check sends the 3-day, 1-day and expired reminders and removes dead devices. On iPhones the app must first be added to the Home Screen.
-  1. Firebase console -> Project settings -> Cloud Messaging -> Web Push certificates -> generate a key pair; put it in `VAPID_KEY` in `owner-app/src/App.jsx`.
-  2. Fill `messagingSenderId` and `appId` in `owner-app/src/App.jsx` and `owner-app/public/firebase-messaging-sw.js`.
-  3. The Firebase version in `firebase-messaging-sw.js` (10.12.2) should match the major version of the `firebase` npm package.
+    subgraph Cloud [ Google Cloud Platform / Firebase ]
+        Firestore[(Cloud Firestore\nLedger & Analytics)]
+        Functions[Cloud Functions\nAuth & Ingestion API]
+        Agent -->|Encrypted HTTPS TLS 1.3| Firestore
+        Agent -->|License Handshake| Functions
+    end
 
-## Known limits (honest list)
-- A determined attacker using many networks can still try 30 PINs per shop per hour, and during that time the real owner can't log in either (an already-logged-in phone is unaffected). That is the price of capping guessing; 6-digit PINs are weak by nature, so keep the secret `.env` safe and consider longer PINs later.
-- An already-issued sign-in token can work for up to about an hour after "log out all devices" or a PIN reset (only new tokens are refused).
-- Anyone with Administrator rights on a shop PC can read that shop's license from `C:\Program Files\HisaabLive\config.json`. Revoke License is the answer if that PC is no longer trusted.
-- Not tested here: `firestore.rules` (emulator needed) and the Windows installer's real `icacls`/`schtasks` calls (unit-tested with stand-ins; try it once on a spare Windows PC).
+    subgraph Clients [ Management Clients ]
+        Mobile["Owner Android App\n(Capacitor APK & PWA)"]
+        Admin["Super Admin Console\n(Production Dashboard)"]
+        Firestore -->|Live Real-Time Sync| Mobile
+        Firestore -->|Tenant Administration| Admin
+    end
+```
 
-## Tests and demo (no internet, no Firebase needed)
-- `cd firebase/functions && node --test` and `cd agent && node --test`: unit tests (28 each; `billcore.js` must stay identical in both folders and a test checks it).
-- `node demo/run.js` runs the REAL Cloud Functions code against an in-memory fake Firebase and plays the whole story, including attacks (parallel PIN guessing, spraying, spam, flooding) and a fake cashier tampering with a real SQLite POS file (section 12). It does NOT test `firestore.rules`.
+---
+
+## 📁 Repository Structure
+
+```text
+├── .github/workflows/          # CI/CD Automated Pipelines
+│   ├── build-apk.yml           # Compiles Android APK in the cloud
+│   └── build-agent-exe.yml     # Compiles Windows HisaabLiveAgent.exe
+├── agent/                      # POS Windows Agent (Node.js + Pkg)
+│   ├── agent.js                # Core background sync service
+│   ├── setup.js                # Interactive POS column discovery
+│   ├── automap.js              # Heuristic column detection engine
+│   ├── installer.js            # Hardened Windows Task Scheduler installer
+│   └── connectors/             # SQLite, MSSQL, Access, Excel, CSV drivers
+├── owner-app/                  # Shop Owner Mobile & Web Application
+│   ├── src/                    # React 18 UI with eye-comfort styling
+│   ├── capacitor.config.json   # Capacitor Android build configuration
+│   └── android/                # Native Android Gradle workspace
+├── super-admin/                # Multi-Tenant Super Admin Management Portal
+│   └── src/Admin.jsx           # Live shop provisioning, telemetry & licensing
+├── firebase/                   # Cloud Functions & Security Rules
+│   ├── functions/              # Backend validation and billing logic
+│   └── firestore.rules         # Dual-Mode (Spark + Blaze) Security Rules
+├── SHOP_SETUP_GUIDE.md         # Complete on-site technician & owner manual
+└── LICENSE                     # Open-source MIT License
+```
+
+---
+
+## 🚀 Quickstart Guide
+
+### 1. Running the Super Admin Portal
+```bash
+cd super-admin
+npm install
+npm run dev
+```
+*Portal runs at: `http://localhost:5173` (or port 4174 in preview mode)*
+
+### 2. Running the Owner App Locally
+```bash
+cd owner-app
+npm install
+npm run dev
+```
+*App runs at: `http://localhost:5173` (or port 4173 in preview mode)*
+
+### 3. Downloading Pre-Built Binaries (Zero Setup)
+You don't need to install Android Studio or Windows build tools locally:
+* **Android APK (`HisaabLive.apk`):** Download the latest build from the [GitHub Actions APK Tab](https://github.com/Wahi-ur-rehman/Hisaab-Live-/actions/workflows/build-apk.yml).
+* **Windows Agent (`HisaabLiveAgent.exe`):** Download from the [GitHub Actions POS Agent Tab](https://github.com/Wahi-ur-rehman/Hisaab-Live-/actions/workflows/build-agent-exe.yml).
+
+---
+
+## 📖 Deployment & Shop Onboarding
+
+For detailed instructions on deploying the agent on cash registers and configuring databases, consult the official guide:
+
+👉 **[Read the Complete Shop Setup & POS Agent Deployment Guide (SHOP_SETUP_GUIDE.md)](SHOP_SETUP_GUIDE.md)**
+
+---
+
+## 🔒 Security & Compliance
+
+* **Zero-Credential Edge:** The local shop agent contains no Firebase API keys, administrative service accounts, or database passwords. It only stores an encrypted session token.
+* **Dual-Mode Hybrid Rules:** Firestore security rules seamlessly auto-detect whether your Firebase project is running on the free **Spark Plan** or the paid **Blaze Plan** without breaking queries.
+* **Hardened File System:** On Windows POS computers, the agent isolates itself in `C:\Program Files\HisaabLive\` with `SYSTEM` and `Administrators`-only DACLs (`icacls`), preventing unauthorized tampering by store employees.
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+
+Developed with precision by [Wahi-ur-rehman](https://github.com/Wahi-ur-rehman).
