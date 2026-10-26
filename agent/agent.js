@@ -27,7 +27,7 @@ const BAD_LICENSE_RETRY_MS = 5 * 60000;
 
 // The server address can be overridden for testing, but only with an https:// address, so a license
 // key can never be sent over plain HTTP.
-const FUNCTIONS_URL = process.env.HL_FUNCTIONS_URL || "https://us-central1-hisaablive-final.cloudfunctions.net";
+const FUNCTIONS_URL = process.env.HL_FUNCTIONS_URL || "https://us-central1-hissab-live.cloudfunctions.net";
 const isLocalTest = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(FUNCTIONS_URL) && process.env.HL_ALLOW_LOCAL_HTTP === "1";
 if (!/^https:\/\//.test(FUNCTIONS_URL) && !isLocalTest) {
   console.error("HL_FUNCTIONS_URL must start with https://. Refusing to start.");

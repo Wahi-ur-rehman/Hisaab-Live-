@@ -1,0 +1,30 @@
+name: Build POS Agent EXE
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-agent:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build HisaabLiveAgent.exe
+        run: |
+          cd agent
+          npx @yao-pkg/pkg . -t node20-win-x64 -o HisaabLiveAgent.exe
+
+      - name: Upload EXE Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hisaablive-agent-pos-exe
+          path: agent/HisaabLiveAgent.exe
