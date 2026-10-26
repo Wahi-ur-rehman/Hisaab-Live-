@@ -1,0 +1,14 @@
+{
+  "firestore": { "rules": "firestore.rules" },
+  "hosting": [
+    { "target": "super-admin", "public": "super-admin/dist", "rewrites": [{ "source": "**", "destination": "/index.html" }] },
+    { "target": "owner-app", "public": "owner-app/dist", "rewrites": [{ "source": "**", "destination": "/index.html" }] }
+  ],
+  "functions": [
+    {
+      "source": "firebase/functions",
+      "codebase": "default",
+      "ignore": ["node_modules", "scripts", "*.test.js"]
+    }
+  ]
+}

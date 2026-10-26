@@ -1,0 +1,17 @@
+{
+  "projects": {
+    "default": "hissab-live"
+  },
+  "targets": {
+    "hissab-live": {
+      "hosting": {
+        "owner-app": [
+          "owner-app"
+        ],
+        "super-admin": [
+          "super-admin"
+        ]
+      }
+    }
+  }
+}

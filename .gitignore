@@ -1,0 +1,9 @@
+node_modules/
+dist/
+# secrets and per-shop files: never commit
+.env
+config.json
+agent.log
+agent.lock
+*serviceAccount*.json
+*.exe

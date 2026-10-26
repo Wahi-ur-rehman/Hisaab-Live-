@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions that support BOTH Spark (Free) & Blaze (Paid with Cloud Functions)
+    function signedIn() { 
+      return request.auth != null; 
+    }
+
+    // Super Admin: Recognized by custom claim (Blaze) OR directly by admin email (Spark)
+    function isAdmin() { 
+      return signedIn() && (
+        request.auth.token.admin == true || 
+        request.auth.token.email == 'admin@hisaablive.com'
+      ); 
+    }
+
+    // Shop Owner: Recognized by custom claim token (Blaze) OR signed-in account (Spark)
+    function isOwner(shopId) { 
+      return signedIn() && (
+        request.auth.token.shopId == shopId || 
+        request.auth.token.email != null
+      ); 
+    }
+
+    // Check if shop document is active
+    function shopActive(shopId) {
+      return !exists(/databases/$(database)/documents/shops/$(shopId)) ||
+        get(/databases/$(database)/documents/shops/$(shopId)).data.status == 'active';
+    }
+
+    function canAccessShop(shopId) { 
+      return isAdmin() || (isOwner(shopId) && shopActive(shopId)); 
+    }
+
+    // Shops Root Document
+    match /shops/{shopId} {
+      // Super Admin has full read/write; Owners can read their shop
+      allow read: if isAdmin() || isOwner(shopId);
+      allow write: if isAdmin();
+
+      // Subcollections: Super Admin and active Shop Owners can read and write
+      match /expenses/{expenseId} {
+        allow read, write: if canAccessShop(shopId);
+      }
+      match /daily_sales/{day} {
+        allow read, write: if canAccessShop(shopId);
+      }
+      match /monthly_summary/{ym} {
+        allow read, write: if canAccessShop(shopId);
+      }
+      match /bills/{billId} {
+        allow read, write: if canAccessShop(shopId);
+      }
+      match /bill_days/{day} {
+        allow read, write: if canAccessShop(shopId);
+      }
+      match /alerts/{alertId} {
+        allow read, write: if canAccessShop(shopId);
+      }
+      match /khata_customers/{customerId} {
+        allow read, write: if canAccessShop(shopId);
+
+        match /entries/{entryId} {
+          allow read, write: if canAccessShop(shopId);
+        }
+      }
+    }
+
+    // Internal configurations and setup codes
+    match /shops_private/{shopId} {
+      allow read, write: if isAdmin();
+    }
+    match /setup_codes/{id} {
+      allow read, write: if isAdmin();
+    }
+    match /rate_limits/{id} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

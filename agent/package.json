@@ -1,0 +1,14 @@
+{
+  "name": "hisaablive-agent",
+  "version": "1.0.0",
+  "private": true,
+  "bin": "agent.js",
+  "pkg": {
+    "targets": [
+      "node22-win-x64"
+    ]
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}
