@@ -6,9 +6,9 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 const app = initializeApp({
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "YOUR_KEY",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "hisaablive-final.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "hisaablive-final",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCcbUDXSqjFOwXHC1_3j3PfuxG6i2msT3E",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "hissab-live.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "hissab-live",
 });
 
 const APPCHECK_SITE_KEY = import.meta.env.VITE_APPCHECK_SITE_KEY || "";

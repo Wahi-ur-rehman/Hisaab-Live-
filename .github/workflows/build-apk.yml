@@ -24,10 +24,18 @@ jobs:
           distribution: 'temurin'
           java-version: 17
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
 
       - name: Install dependencies & Build Web App
+        env:
+          VITE_FIREBASE_API_KEY: AIzaSyCcbUDXSqjFOwXHC1_3j3PfuxG6i2msT3E
+          VITE_FIREBASE_AUTH_DOMAIN: hissab-live.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: hissab-live
+          VITE_FIREBASE_STORAGE_BUCKET: hissab-live.firebasestorage.app
+          VITE_FIREBASE_MESSAGING_SENDER_ID: 1028486183617
+          VITE_FIREBASE_APP_ID: 1:1028486183617:web:e03c33a79f79c06645f240
+          VITE_FIREBASE_MEASUREMENT_ID: G-206RRHW2HG
         run: |
           cd owner-app
           npm install
@@ -38,7 +46,7 @@ jobs:
         run: |
           cd owner-app/android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4

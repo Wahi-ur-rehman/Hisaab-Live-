@@ -9,11 +9,11 @@ import lang from "./language.json";
 import { jsPDF } from "jspdf";
 
 const app = initializeApp({
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "YOUR_KEY",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "hisaablive-final.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "hisaablive-final",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "YOUR_SENDER_ID",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "YOUR_APP_ID",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCcbUDXSqjFOwXHC1_3j3PfuxG6i2msT3E",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "hissab-live.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "hissab-live",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "1028486183617",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:1028486183617:web:e03c33a79f79c06645f240",
 });
 
 const APPCHECK_SITE_KEY = import.meta.env.VITE_APPCHECK_SITE_KEY || "";
