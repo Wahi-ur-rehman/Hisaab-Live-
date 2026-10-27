@@ -10,6 +10,7 @@ import { jsPDF } from "jspdf";
 import { LanguageProvider, useLanguage } from "./context/LanguageContext";
 import Header from "./components/common/Header";
 import TabBar from "./components/common/TabBar";
+import ActionSheetModal from "./components/common/ActionSheetModal";
 
 const app = initializeApp({
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCcbUDXSqjFOwXHC1_3j3PfuxG6i2msT3E",
@@ -220,6 +221,8 @@ function AppContent() {
   // Monthly Hisaab & Kharcha Statement Modal State
   const [showMonthlyModal, setShowMonthlyModal] = useState(false);
   const [monthlyData, setMonthlyData] = useState({ mSale: 0, mExp: 0 });
+  // Logout All Confirmation Sheet State
+  const [showLogoutAllSheet, setShowLogoutAllSheet] = useState(false);
 
   const globalStyle = `
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -412,8 +415,12 @@ function AppContent() {
     return signOut(auth);
   };
 
-  const logoutAll = async () => {
-    if (!window.confirm(t.logout_all_confirm)) return;
+  const logoutAll = () => {
+    setShowLogoutAllSheet(true);
+  };
+
+  const handleConfirmLogoutAll = async () => {
+    setShowLogoutAllSheet(false);
     if (!isDemo) {
       try { await call("logoutEverywhere", {}); } catch (e) { console.error(e); }
     }
@@ -622,22 +629,6 @@ function AppContent() {
       <style>{globalStyle}</style>
       <div style={{ maxWidth: 460, margin: "0 auto", minHeight: "100vh", background: T.bg, position: "relative" }}>
         
-        {/* Demo Mode Ribbon */}
-        {isDemo && (
-          <div style={{ background: T.mode === "dark" ? "#070a12" : "#0f172a", color: "#f8fafc", padding: "8px 16px", fontSize: 12, fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 30 }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
-              <b>Demo Mode Active</b>
-            </span>
-            <button
-              onClick={logout}
-              style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "white", padding: "3px 10px", borderRadius: 20, cursor: "pointer", fontSize: 11, fontWeight: 700 }}
-            >
-              Exit Demo
-            </button>
-          </div>
-        )}
-
         {/* Notch-Safe Header */}
         <Header
           shop={shop}
@@ -647,7 +638,7 @@ function AppContent() {
           onToggleTheme={toggleTheme}
           isDemo={isDemo}
           onExitDemo={logout}
-          onLogout={logout}
+          onLogout={logoutAll}
         />
 
         {/* Main Content Area */}
@@ -662,6 +653,7 @@ function AppContent() {
               isDemo={isDemo}
               demoExpenses={demoExpenses}
               setDemoExpenses={setDemoExpenses}
+              demoCustomers={demoCustomers}
               onAlerts={() => setShowAlertsModal(true)}
               onOpenExpenseDetails={() => setShowExpenseModal(true)}
               onOpenMonthlyStatement={(sale, exp) => {
@@ -838,6 +830,19 @@ function AppContent() {
           />
         )}
 
+        {/* Logout All ActionSheet Confirmation */}
+        <ActionSheetModal
+          isOpen={showLogoutAllSheet}
+          title={t.logout_all || "Logout All Devices"}
+          message={t.logout_all_confirm || "Logout from every phone/device? You will need your PIN to sign in again."}
+          confirmText={t.logout_all || "Logout All Devices"}
+          cancelText={t.cancel || "Cancel"}
+          isDestructive={true}
+          icon="🚪"
+          onClose={() => setShowLogoutAllSheet(false)}
+          onConfirm={handleConfirmLogoutAll}
+        />
+
       </div>
     </>
   );
@@ -859,6 +864,7 @@ function ExpensesTabContent({
   const [selectedCat, setSelectedCat] = useState("All");
   const [deletingId, setDeletingId] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState(null);
 
   useEffect(() => {
     if (isDemo) {
@@ -877,15 +883,26 @@ function ExpensesTabContent({
     );
   }, [shopId, today, isDemo, demoExpenses]);
 
-  const handleDelete = async (e, item) => {
+  const handleDeletePrompt = (e, item) => {
     e.stopPropagation();
-    if (!window.confirm(`Delete expense "${item.title}" (Rs. ${Number(item.amount).toLocaleString()})?`)) return;
+    setExpenseToDelete(item);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!expenseToDelete) return;
+    const item = expenseToDelete;
+    setExpenseToDelete(null);
     setDeletingId(item.id);
     try {
       if (isDemo) {
         setDemoExpenses((prev) => prev.filter((x) => x.id !== item.id));
       } else {
-        await call("deleteExpense", { expenseId: item.id });
+        try {
+          await call("deleteExpense", { expenseId: item.id });
+        } catch (fnErr) {
+          // Direct Firestore write fallback
+          await deleteDoc(doc(db, "shops", shopId, "expenses", item.id));
+        }
       }
     } catch (err) {
       alert("Failed to delete expense: " + (err.message || err));
@@ -903,70 +920,54 @@ function ExpensesTabContent({
   return (
     <div>
       {/* Header Summary Card */}
-      <div
-        style={{
-          background: T.card,
-          borderRadius: T.radius,
-          padding: "18px",
-          border: `1.5px solid ${T.border}`,
-          boxShadow: T.shadowSm,
-          marginBottom: 16,
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+      <div className="rounded-2xl bg-slate-card border border-slate-border p-4 shadow-sm mb-4">
+        <div className="flex justify-between items-center mb-3">
           <div>
-            <span style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, textTransform: "uppercase" }}>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">
               {t.total_expense || "Today's Expenses"}
             </span>
-            <div style={{ fontSize: 24, fontWeight: 900, color: "#f43f5e", marginTop: 2 }}>
+            <div className="text-2xl font-black text-rose-crimson mt-0.5">
               Rs. {Number(total).toLocaleString()}
             </div>
           </div>
           <button
+            type="button"
             onClick={() => setShowAddForm((prev) => !prev)}
-            style={{
-              background: showAddForm ? T.cardSecondary : T.primaryGradient,
-              color: showAddForm ? T.text : "white",
-              border: showAddForm ? `1px solid ${T.border}` : "none",
-              padding: "9px 16px",
-              borderRadius: T.radiusSm,
-              fontSize: 13,
-              fontWeight: 800,
-              cursor: "pointer",
-              boxShadow: showAddForm ? "none" : "0 4px 12px rgba(244,63,94,0.3)",
-            }}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm flex items-center gap-1.5 ${
+              showAddForm
+                ? "bg-slate-800 text-slate-300 border border-slate-700"
+                : "bg-sky-cyan text-slate-950 hover:bg-sky-cyan/90 shadow-sky-cyan/20"
+            }`}
           >
             {showAddForm ? (t.close || "Close Form") : (t.add_expense || "+ Add Expense")}
           </button>
         </div>
 
         {/* Category Pills Filter */}
-        <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
-          {["All", ...CATS.map((c) => c.name)].map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCat(cat)}
-              style={{
-                background: selectedCat === cat ? T.primary : T.cardSecondary,
-                color: selectedCat === cat ? "white" : T.textMuted,
-                border: `1px solid ${selectedCat === cat ? T.primary : T.border}`,
-                padding: "4px 10px",
-                borderRadius: 16,
-                fontSize: 11,
-                fontWeight: 700,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {cat === "All" ? (t.all_categories || "All") : cat}
-            </button>
-          ))}
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+          {["All", ...CATS.map((c) => c.name)].map((cat) => {
+            const isSelected = selectedCat === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedCat(cat)}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap active:scale-95 flex items-center gap-1.5 ${
+                  isSelected
+                    ? "bg-sky-cyan text-slate-950 shadow-sm shadow-sky-cyan/25"
+                    : "bg-slate-800/80 text-slate-300 border border-slate-700/60 hover:border-slate-500"
+                }`}
+              >
+                {cat === "All" ? (t.all_categories || "All") : cat}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* Add Expense Form */}
       {showAddForm && (
-        <div style={{ marginBottom: 16 }}>
+        <div className="mb-4">
           <ExpenseForm
             shopId={shopId}
             T={T}
@@ -980,65 +981,44 @@ function ExpensesTabContent({
       )}
 
       {/* Expenses List */}
-      <div
-        style={{
-          background: T.card,
-          borderRadius: T.radius,
-          padding: "16px",
-          border: `1.5px solid ${T.border}`,
-          boxShadow: T.shadowSm,
-        }}
-      >
-        <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 12 }}>
-          {selectedCat === "All" ? (t.today_expenses || "Today's Expenses") : `${selectedCat}`} ({filteredItems.length})
+      <div className="rounded-2xl bg-slate-card border border-slate-border p-4 shadow-sm">
+        <div className="text-sm font-bold text-slate-100 mb-3 flex items-center justify-between">
+          <span>{selectedCat === "All" ? (t.today_expenses || "Today's Expenses") : selectedCat}</span>
+          <span className="text-xs text-slate-400 font-medium">({filteredItems.length})</span>
         </div>
 
         {filteredItems.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "32px 16px", color: T.textMuted, fontSize: 13 }}>
+          <div className="text-center py-8 text-slate-400 text-xs">
             {t.no_entries || "No expenses recorded today."}
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className="flex flex-col gap-2">
             {filteredItems.map((item) => (
               <div
                 key={item.id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  background: T.cardSecondary,
-                  padding: "10px 14px",
-                  borderRadius: T.radiusSm,
-                  border: `1px solid ${T.border}`,
-                }}
+                className="flex justify-between items-center p-3 rounded-xl bg-slate-800/40 border border-slate-700/50 hover:border-slate-600 transition-all"
               >
-                <div style={{ minWidth: 0, flex: 1, marginRight: 8 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: T.text }}>
+                <div className="min-w-0 flex-1 mr-3">
+                  <div className="font-bold text-sm text-slate-100 truncate">
                     {item.title}
                   </div>
-                  <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2, display: "flex", gap: 8 }}>
-                    <span>{item.category || "Other"}</span>
+                  <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2">
+                    <span className="inline-block px-2 py-0.5 rounded-md bg-slate-800 text-[11px] font-medium text-slate-300 border border-slate-700/50">
+                      {item.category || "Other"}
+                    </span>
                     {item.time && <span>• {item.time}</span>}
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: "#f43f5e" }}>
+                <div className="flex items-center gap-2.5 flex-shrink-0">
+                  <span className="text-sm font-black text-rose-crimson">
                     Rs. {Number(item.amount || 0).toLocaleString()}
                   </span>
                   <button
-                    onClick={(e) => handleDelete(e, item)}
+                    type="button"
+                    onClick={(e) => handleDeletePrompt(e, item)}
                     disabled={deletingId === item.id}
                     title="Delete Expense"
-                    style={{
-                      background: "rgba(244,63,94,0.1)",
-                      border: "1px solid rgba(244,63,94,0.3)",
-                      color: "#f43f5e",
-                      borderRadius: 6,
-                      padding: "4px 8px",
-                      cursor: "pointer",
-                      fontSize: 12,
-                      fontWeight: 700,
-                    }}
+                    className="w-8 h-8 rounded-lg bg-rose-crimson/10 border border-rose-crimson/30 text-rose-crimson hover:bg-rose-crimson/20 active:scale-90 flex items-center justify-center text-xs transition-all disabled:opacity-40"
                   >
                     {deletingId === item.id ? "..." : "🗑️"}
                   </button>
@@ -1048,6 +1028,22 @@ function ExpensesTabContent({
           </div>
         )}
       </div>
+
+      {/* ActionSheet Confirmation Dialog */}
+      <ActionSheetModal
+        isOpen={Boolean(expenseToDelete)}
+        title={t.confirm_delete || "Delete Expense"}
+        message={
+          expenseToDelete
+            ? `Delete expense "${expenseToDelete.title}" (Rs. ${Number(expenseToDelete.amount || 0).toLocaleString()})? This cannot be undone.`
+            : ""
+        }
+        confirmText={t.delete || "Delete Expense"}
+        cancelText={t.cancel || "Cancel"}
+        isDestructive={true}
+        onClose={() => setExpenseToDelete(null)}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }
@@ -1082,23 +1078,16 @@ function ReportsTabContent({
     }
     if (!shopId) return;
 
-    const q = query(
+    const qExp = query(
       collection(db, "shops", shopId, "expenses"),
       where("date", ">=", `${ym}-01`),
       where("date", "<=", `${ym}-31`),
       orderBy("date", "desc")
     );
-    const unsubExp = onSnapshot(
-      q,
-      (s) => setItems(s.docs.map((d) => ({ id: d.id, ...d.data() }))),
-      (e) => console.error("Monthly expenses fetch error:", e)
-    );
+    const unsubExp = onSnapshot(qExp, (s) => setItems(s.docs.map((d) => ({ id: d.id, ...d.data() }))), (e) => console.error("Monthly expenses fetch error:", e));
 
-    const unsubMonth = onSnapshot(
-      doc(db, "shops", shopId, "monthly_summary", ym),
-      (d) => setMonthSummary(d.exists() ? d.data() : {}),
-      (e) => console.error("Monthly summary fetch error:", e)
-    );
+    const docMonth = doc(db, "shops", shopId, "monthly_summary", ym);
+    const unsubMonth = onSnapshot(docMonth, (d) => setMonthSummary(d.exists() ? d.data() : {}), (e) => console.error("Monthly summary fetch error:", e));
 
     return () => {
       unsubExp();
@@ -1143,40 +1132,19 @@ function ReportsTabContent({
   return (
     <div>
       {/* Month Header & Download Action */}
-      <div
-        style={{
-          background: T.card,
-          borderRadius: T.radius,
-          padding: "18px",
-          border: `1.5px solid ${T.border}`,
-          boxShadow: T.shadowSm,
-          marginBottom: 16,
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+      <div className="rounded-2xl bg-slate-card border border-slate-border p-4 shadow-sm mb-4">
+        <div className="flex justify-between items-center mb-3">
           <div>
-            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: T.text }}>
+            <h3 className="text-base font-bold text-slate-100 m-0">
               {t.month_title || "This Month Summary"}
             </h3>
-            <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600 }}>{ym}</span>
+            <span className="text-xs text-slate-400 font-semibold">{ym}</span>
           </div>
           <button
+            type="button"
             onClick={handleDownloadPdf}
             disabled={downloading}
-            style={{
-              background: T.primaryGradient,
-              color: "white",
-              border: "none",
-              padding: "10px 16px",
-              borderRadius: T.radiusSm,
-              fontSize: 12,
-              fontWeight: 800,
-              cursor: "pointer",
-              boxShadow: "0 4px 12px rgba(244,63,94,0.3)",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
+            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-sky-cyan text-slate-950 hover:bg-sky-cyan/90 transition-all active:scale-95 shadow-sm shadow-sky-cyan/25 flex items-center gap-1.5 disabled:opacity-50"
           >
             <span>📄</span>
             <span>{downloading ? "Preparing..." : (t.download_pdf || "Download PDF")}</span>
@@ -1184,80 +1152,83 @@ function ReportsTabContent({
         </div>
 
         {/* Metrics Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-          <div style={{ background: T.cardSecondary, padding: "12px", borderRadius: T.radiusSm, border: `1px solid ${T.border}` }}>
-            <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>
+        <div className="grid grid-cols-2 gap-2.5 mb-3">
+          <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/60">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
               {t.month_sale || "Monthly Sales"}
             </span>
-            <div style={{ fontSize: 18, fontWeight: 900, color: "#10b981", marginTop: 4 }}>
+            <div className="text-lg font-black text-emerald-mint mt-1">
               Rs. {Number(totalSale).toLocaleString()}
             </div>
           </div>
-          <div style={{ background: T.cardSecondary, padding: "12px", borderRadius: T.radiusSm, border: `1px solid ${T.border}` }}>
-            <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>
+          <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/60">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
               {t.month_expense || "Monthly Expenses"}
             </span>
-            <div style={{ fontSize: 18, fontWeight: 900, color: "#f43f5e", marginTop: 4 }}>
+            <div className="text-lg font-black text-rose-crimson mt-1">
               Rs. {Number(totalExpense).toLocaleString()}
             </div>
           </div>
         </div>
 
-        <div style={{ background: T.heroGradient, padding: "14px 16px", borderRadius: T.radiusSm, color: "white" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <span style={{ fontSize: 11, opacity: 0.8, fontWeight: 700, textTransform: "uppercase" }}>
-                {t.month_profit || "Net Profit"}
-              </span>
-              <div style={{ fontSize: 22, fontWeight: 900, color: "#38bdf8", marginTop: 2 }}>
-                Rs. {Number(netProfit).toLocaleString()}
-              </div>
+        {/* Net Profit & Margin Hero Banner */}
+        <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-3.5 rounded-xl border border-slate-700 flex justify-between items-center">
+          <div>
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wide">
+              {t.month_profit || "Net Profit"}
+            </span>
+            <div className="text-xl font-black text-sky-cyan mt-0.5">
+              Rs. {Number(netProfit).toLocaleString()}
             </div>
-            <div style={{ textAlign: "right" }}>
-              <span style={{ fontSize: 11, opacity: 0.8, fontWeight: 700 }}>Margin</span>
-              <div style={{ fontSize: 18, fontWeight: 900, color: "#10b981" }}>{margin}%</div>
+          </div>
+          <div className="text-right">
+            <span className="text-[11px] text-slate-400 font-bold">Margin</span>
+            <div className="text-sm font-black text-emerald-mint bg-emerald-mint/15 border border-emerald-mint/30 px-2.5 py-0.5 rounded-full mt-0.5">
+              {margin}%
             </div>
           </div>
         </div>
       </div>
 
-      {/* Category Breakdown */}
-      <div
-        style={{
-          background: T.card,
-          borderRadius: T.radius,
-          padding: "16px",
-          border: `1.5px solid ${T.border}`,
-          boxShadow: T.shadowSm,
-        }}
-      >
-        <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 12 }}>
-          Category Expenses Breakdown
+      {/* Category Breakdown with Progress Bars */}
+      <div className="rounded-2xl bg-slate-card border border-slate-border p-4 shadow-sm">
+        <div className="text-sm font-bold text-slate-100 mb-3 flex items-center justify-between">
+          <span>Category Expenses Breakdown</span>
+          <span className="text-xs text-slate-400 font-medium">{catBreakdown.filter(c => c.total > 0).length} active</span>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {catBreakdown.map((cat) => (
-            <div
-              key={cat.name}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "8px 12px",
-                borderRadius: T.radiusSm,
-                background: T.cardSecondary,
-                border: `1px solid ${T.border}`,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 18 }}>{cat.icon}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{cat.name}</span>
-                <span style={{ fontSize: 11, color: T.textMuted }}>({cat.count})</span>
+        <div className="flex flex-col gap-2.5">
+          {catBreakdown.map((cat) => {
+            const pct = totalExpense > 0 ? ((cat.total / totalExpense) * 100).toFixed(1) : "0.0";
+            return (
+              <div
+                key={cat.name}
+                className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/50"
+              >
+                <div className="flex justify-between items-center mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">{cat.icon}</span>
+                    <span className="text-xs font-bold text-slate-200">{cat.name}</span>
+                    <span className="text-[11px] text-slate-400">({cat.count})</span>
+                  </div>
+                  <div className="text-right flex items-baseline gap-1.5">
+                    <span className={`text-xs font-black ${cat.total > 0 ? "text-slate-100" : "text-slate-400"}`}>
+                      Rs. {Number(cat.total).toLocaleString()}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-semibold">({pct}%)</span>
+                  </div>
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-slate-700/60 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{
+                      width: `${pct}%`,
+                      backgroundColor: cat.color || "#38bdf8",
+                    }}
+                  />
+                </div>
               </div>
-              <span style={{ fontSize: 13, fontWeight: 800, color: cat.total > 0 ? T.text : T.textMuted }}>
-                Rs. {Number(cat.total).toLocaleString()}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
@@ -1287,6 +1258,7 @@ function Hisaab({
   isDemo,
   demoExpenses,
   setDemoExpenses,
+  demoCustomers,
   onAlerts,
   onOpenExpenseDetails,
   onOpenMonthlyStatement,
@@ -1313,129 +1285,155 @@ function Hisaab({
   const sale = shop.today_sale_date === today ? shop.today_sale || 0 : 0;
   const missing = shop.today_sale_date === today ? shop.today_missing || 0 : 0;
   const netProfit = sale - totalExp;
+  const todayMargin = sale > 0 ? ((netProfit / sale) * 100).toFixed(1) : "0.0";
+  const khataReceivable = isDemo
+    ? ((demoCustomers || []).reduce((a, c) => a + (c.balance > 0 ? c.balance : 0), 0))
+    : (shop.khata_receivables || shop.khata_total || 0);
 
   const mSale = isDemo ? 540000 : ((month && month.sale) || 0);
   const mExp = isDemo ? (110000 + totalExp) : ((month && month.expense) || 0);
 
   return (
     <div>
-      {/* Missing Sales Warning Banner */}
+      {/* Missing Sales Warning Banner (Rose Crimson) */}
       {missing > 0 && (
         <div
           onClick={onAlerts}
-          style={{
-            background: T.mode === "dark" ? "rgba(239,68,68,0.2)" : "#fff1f2",
-            border: `1.5px solid ${T.primary}`, color: T.primary,
-            padding: "12px 16px", borderRadius: T.radius, marginBottom: 14,
-            cursor: "pointer", fontWeight: 700, fontSize: 13,
-            display: "flex", alignItems: "center", gap: 10,
-            boxShadow: T.shadowSm,
-          }}
+          className="cursor-pointer mb-4 p-3.5 rounded-2xl bg-rose-crimson/10 border border-rose-crimson/30 text-rose-crimson shadow-sm flex items-center gap-3 transition-all active:scale-[0.99]"
         >
-          <span style={{ fontSize: 20 }}>🚨</span>
-          <span style={{ flex: 1 }}>{t.missing_today.replace("{x}", Math.round(missing).toLocaleString("en-US"))}</span>
-          <span style={{ fontSize: 13, color: T.primary, fontWeight: 800 }}>Review &rarr;</span>
+          <span className="text-xl flex-shrink-0">🚨</span>
+          <span className="flex-1 font-bold text-xs leading-snug">
+            {t.missing_today.replace("{x}", Math.round(missing).toLocaleString("en-US"))}
+          </span>
+          <span className="text-xs font-black text-rose-crimson uppercase tracking-wide flex items-center gap-1 flex-shrink-0">
+            Review &rarr;
+          </span>
         </div>
       )}
 
-      {/* Hero Munafa (Net Profit) Card */}
-      <div style={{
-        background: netProfit >= 0 ? T.heroGradient : "linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%)",
-        borderRadius: T.radiusXl, padding: "24px 22px", color: "white",
-        marginBottom: 16, boxShadow: T.shadowLg, position: "relative", overflow: "hidden",
-        border: `1px solid ${T.border}`,
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "rgba(255,255,255,0.75)" }}>
-            Today's Net Munafa (Profit)
+      {/* Net Profit Hero Card with prominent visual hierarchy */}
+      <div
+        className={`rounded-2xl p-5 mb-4 text-white shadow-lg relative overflow-hidden border ${
+          netProfit >= 0
+            ? "bg-gradient-to-br from-slate-900 via-slate-850 to-slate-800 border-slate-700/80"
+            : "bg-gradient-to-br from-rose-950/70 via-slate-900 to-slate-900 border-rose-crimson/40"
+        }`}
+      >
+        {/* Subtle Ambient Radial Glow */}
+        <div
+          className={`absolute top-0 right-0 w-36 h-36 rounded-full blur-3xl pointer-events-none -mr-10 -mt-10 ${
+            netProfit >= 0 ? "bg-emerald-mint/15" : "bg-rose-crimson/15"
+          }`}
+        />
+
+        <div className="flex justify-between items-center relative z-10">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+            {t.profit || "Today's Net Munafa (Profit)"}
           </span>
-          <span style={{ background: "rgba(255,255,255,0.15)", borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>
-            Live
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white/10 text-slate-200 border border-white/15">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-mint animate-pulse" />
+              Live
+            </span>
+          </div>
+        </div>
+
+        <div className="text-3xl font-black my-2.5 tracking-tight text-white relative z-10 flex items-baseline gap-2.5 flex-wrap">
+          <span>Rs. {netProfit.toLocaleString()}</span>
+          <span
+            className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
+              netProfit >= 0
+                ? "bg-emerald-mint/15 text-emerald-mint border border-emerald-mint/30"
+                : "bg-rose-crimson/15 text-rose-crimson border border-rose-crimson/30"
+            }`}
+          >
+            Margin: {todayMargin}%
           </span>
         </div>
 
-        <div style={{ fontSize: 36, fontWeight: 900, margin: "10px 0 6px", letterSpacing: -0.5 }}>
-          Rs. {netProfit.toLocaleString()}
-        </div>
-
-        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", display: "flex", gap: 14 }}>
-          <span>Sales: <b>Rs. {sale.toLocaleString()}</b></span>
-          <span>&bull;</span>
-          <span>Kharcha: <b>Rs. {totalExp.toLocaleString()}</b></span>
+        <div className="flex items-center gap-3 text-xs text-slate-300 pt-2.5 border-t border-white/10 relative z-10">
+          <span>Sales: <b className="text-emerald-mint font-bold">Rs. {sale.toLocaleString()}</b></span>
+          <span className="text-slate-500">•</span>
+          <span>Kharcha: <b className="text-rose-crimson font-bold">Rs. {totalExp.toLocaleString()}</b></span>
         </div>
       </div>
 
-      {/* Interactive Sales & Expenses Row */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-        {/* Today's Sale Card */}
-        <div style={{
-          background: T.card, borderRadius: T.radius, padding: "16px 14px",
-          border: `1px solid ${T.border}`, boxShadow: T.shadowSm,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, color: T.success, fontSize: 12, fontWeight: 700 }}>
+      {/* Interactive KPI Cards Grid */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        {/* Today's Sale Card (Emerald Mint) */}
+        <div className="rounded-2xl bg-slate-card border border-slate-border p-3.5 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center gap-1.5 text-emerald-mint text-xs font-bold uppercase tracking-wide">
             <span>📈</span>
-            <span>TODAY'S SALE</span>
+            <span>{t.total_sale || "TODAY'S SALE"}</span>
           </div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: T.text, marginTop: 6 }}>
+          <div className="text-xl font-black text-slate-100 my-1.5">
             Rs. {sale.toLocaleString()}
           </div>
-          <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>Auto-synced from POS</div>
+          <div className="text-[11px] text-slate-400 font-medium">Auto-synced from POS</div>
         </div>
 
-        {/* CLICKABLE Today's Expense Card */}
+        {/* CLICKABLE Today's Expense Card (Rose Crimson) */}
         <div
           onClick={onOpenExpenseDetails}
-          style={{
-            background: T.card, borderRadius: T.radius, padding: "16px 14px",
-            border: `1.5px solid ${T.primary}`, boxShadow: T.shadowSm,
-            cursor: "pointer", position: "relative",
-          }}
+          className="rounded-2xl bg-slate-card border border-rose-crimson/30 p-3.5 shadow-sm cursor-pointer hover:border-rose-crimson/60 active:scale-[0.99] transition-all flex flex-col justify-between"
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, color: T.primary, fontSize: 12, fontWeight: 700 }}>
+          <div className="flex justify-between items-center text-rose-crimson text-xs font-bold uppercase tracking-wide">
+            <div className="flex items-center gap-1.5">
               <span>💸</span>
-              <span>TODAY'S KHARCHA</span>
+              <span>{t.total_expense || "TODAY'S KHARCHA"}</span>
             </div>
-            <span style={{ fontSize: 11, color: T.primary, fontWeight: 800 }}>View &rarr;</span>
+            <span className="text-[11px] text-sky-cyan font-bold">View &rarr;</span>
           </div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: T.primary, marginTop: 6 }}>
+          <div className="text-xl font-black text-rose-crimson my-1.5">
             Rs. {totalExp.toLocaleString()}
           </div>
-          <div style={{ fontSize: 11, color: T.primary, fontWeight: 600, marginTop: 2 }}>
+          <div className="text-[11px] text-rose-crimson font-semibold">
             Tap for breakdown 🔍
           </div>
         </div>
       </div>
 
+      {/* Khata Receivables Banner (Warm Amber) */}
+      {khataReceivable > 0 && (
+        <div className="rounded-2xl bg-slate-card border border-amber-warm/30 p-3.5 shadow-sm mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-warm/15 border border-amber-warm/30 text-amber-warm flex items-center justify-center font-bold text-base flex-shrink-0">
+              📒
+            </div>
+            <div>
+              <span className="text-[11px] font-bold text-amber-warm uppercase tracking-wide">
+                {t.receivables || "Khata Receivables (Baqaya)"}
+              </span>
+              <div className="text-lg font-black text-amber-warm">
+                Rs. {Math.round(khataReceivable).toLocaleString()}
+              </div>
+            </div>
+          </div>
+          <span className="text-xs text-slate-400 font-medium">Pending</span>
+        </div>
+      )}
+
       {/* Monthly Summary Card (Clickable for Statement & PDF) */}
       <div
         onClick={() => onOpenMonthlyStatement && onOpenMonthlyStatement(mSale, mExp)}
-        style={{
-          background: T.card, borderRadius: T.radius, padding: "18px",
-          border: `1.5px solid ${T.border}`, boxShadow: T.shadowSm, marginBottom: 16,
-          cursor: "pointer", transition: "transform 0.15s ease",
-        }}
+        className="rounded-2xl bg-slate-card border border-slate-border hover:border-sky-cyan/40 p-4 shadow-sm mb-4 cursor-pointer transition-all active:scale-[0.99]"
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div className="flex justify-between items-center mb-3">
           <div>
-            <h4 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: T.text }}>{t.month_title}</h4>
-            <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 600 }}>Month: {ym}</span>
+            <h4 className="text-sm font-bold text-slate-100 m-0">{t.month_title || "This Month Summary"}</h4>
+            <span className="text-[11px] text-slate-400 font-medium">Month: {ym}</span>
           </div>
-          <span style={{
-            fontSize: 12, fontWeight: 800, color: T.primary,
-            background: T.primaryLight, padding: "4px 10px", borderRadius: 12,
-            display: "flex", alignItems: "center", gap: 4,
-          }}>
+          <span className="text-xs font-bold text-sky-cyan bg-sky-cyan/15 border border-sky-cyan/30 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-sm">
             <span>📄 Statement & PDF</span>
             <span>&rarr;</span>
           </span>
         </div>
-        <Row label={t.month_sale} value={mSale} T={T} />
-        <Row label={t.month_expense} value={mExp} T={T} />
-        <div style={{ height: 1, background: T.border, margin: "8px 0" }} />
-        <Row label={t.month_profit} value={mSale - mExp} bold isProfit T={T} />
-        <div style={{ textAlign: "right", marginTop: 8 }}>
-          <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 600 }}>
+        <Row label={t.month_sale || "Monthly Sales"} value={mSale} color="text-emerald-mint" />
+        <Row label={t.month_expense || "Monthly Expenses"} value={mExp} color="text-rose-crimson" />
+        <div className="h-px bg-slate-border my-2" />
+        <Row label={t.month_profit || "Monthly Profit"} value={mSale - mExp} bold isProfit color="text-emerald-mint" />
+        <div className="text-right mt-2">
+          <span className="text-[11px] text-slate-400 font-medium">
             Tap to view breakdown, category stats & download PDF 🔍
           </span>
         </div>
@@ -1452,11 +1450,11 @@ function Hisaab({
   );
 }
 
-function Row({ label, value, bold, isProfit, T }) {
+function Row({ label, value, bold, isProfit, color, T }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: bold ? 800 : 500, margin: "6px 0", fontSize: 14 }}>
-      <span style={{ color: bold ? T.text : T.textMuted }}>{label}</span>
-      <span style={{ color: isProfit ? T.success : bold ? T.text : T.text }}>
+    <div className={`flex justify-between items-center my-1.5 text-sm ${bold ? "font-bold text-slate-100" : "font-medium text-slate-300"}`}>
+      <span className={bold ? "text-slate-100" : "text-slate-400"}>{label}</span>
+      <span className={color || (isProfit ? "text-emerald-mint font-bold" : bold ? "text-slate-100" : "text-slate-200")}>
         Rs. {Math.round(value).toLocaleString("en-US")}
       </span>
     </div>
@@ -1470,6 +1468,7 @@ function ExpenseDetailModal({ today, expenses, shopId, T, isDemo, onDeleteExpens
   const [liveExpenses, setLiveExpenses] = useState(expenses);
   const [selectedCat, setSelectedCat] = useState("All");
   const [deletingId, setDeletingId] = useState("");
+  const [expenseToDelete, setExpenseToDelete] = useState(null);
 
   useEffect(() => {
     if (isDemo) {
@@ -1480,15 +1479,25 @@ function ExpenseDetailModal({ today, expenses, shopId, T, isDemo, onDeleteExpens
     return onSnapshot(q, (s) => setLiveExpenses(s.docs.map((x) => ({ id: x.id, ...x.data() }))), (e) => console.error(e));
   }, [shopId, today, isDemo, expenses]);
 
-  const handleDelete = async (e, item) => {
+  const handleDeletePrompt = (e, item) => {
     e.stopPropagation();
-    if (!window.confirm(`Delete expense "${item.title}" (Rs. ${Number(item.amount).toLocaleString()})?`)) return;
+    setExpenseToDelete(item);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!expenseToDelete) return;
+    const item = expenseToDelete;
+    setExpenseToDelete(null);
     setDeletingId(item.id);
     try {
       if (isDemo) {
         onDeleteExpense(item.id);
       } else {
-        await call("deleteExpense", { expenseId: item.id });
+        try {
+          await call("deleteExpense", { expenseId: item.id });
+        } catch (fnErr) {
+          await deleteDoc(doc(db, "shops", shopId, "expenses", item.id));
+        }
       }
     } catch (err) {
       alert("Failed to delete expense: " + (err.message || err));
@@ -1514,33 +1523,22 @@ function ExpenseDetailModal({ today, expenses, shopId, T, isDemo, onDeleteExpens
     : liveExpenses.filter((e) => e.category === selectedCat);
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 99,
-      display: "flex", alignItems: "flex-end", justifyContent: "center", backdropFilter: "blur(5px)",
-    }}>
-      <div style={{
-        background: T.card, width: "100%", maxWidth: 460, maxHeight: "88vh",
-        borderTopLeftRadius: T.radiusXl, borderTopRightRadius: T.radiusXl,
-        display: "flex", flexDirection: "column", overflow: "hidden",
-        boxShadow: T.shadowLg, animation: "slideUp 0.25s ease-out", border: `1px solid ${T.border}`,
-      }}>
+    <div className="fixed inset-0 bg-black/75 z-50 flex items-end justify-center backdrop-blur-sm animate-fade-in">
+      <div className="bg-slate-card w-full max-w-md max-h-[88vh] rounded-t-3xl flex flex-col overflow-hidden shadow-2xl border-t border-x border-slate-border animate-slide-up pb-safe">
         {/* Header */}
-        <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.border}` }}>
-          <div style={{ width: 40, height: 4, borderRadius: 2, background: T.border, margin: "0 auto 12px" }} />
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="p-4 border-b border-slate-border">
+          <div className="w-10 h-1 rounded-full bg-slate-700/60 mx-auto mb-3" />
+          <div className="flex justify-between items-center">
             <div>
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: T.text }}>Today's Expenses Breakdown</h3>
-              <p style={{ margin: "2px 0 0", fontSize: 13, color: T.textMuted }}>
-                Total spent: <b style={{ color: T.primary }}>Rs. {total.toLocaleString()}</b>
+              <h3 className="m-0 text-base font-bold text-slate-100">Today's Expenses Breakdown</h3>
+              <p className="m-0 text-xs text-slate-400 mt-0.5">
+                Total spent: <b className="text-rose-crimson font-black">Rs. {total.toLocaleString()}</b>
               </p>
             </div>
             <button
+              type="button"
               onClick={onClose}
-              style={{
-                background: T.cardSecondary, border: `1px solid ${T.border}`, borderRadius: "50%",
-                width: 32, height: 32, cursor: "pointer", fontSize: 16,
-                fontWeight: 700, color: T.textMuted, display: "flex", alignItems: "center", justifyContent: "center",
-              }}
+              className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-bold flex items-center justify-center text-sm hover:bg-slate-700 active:scale-95 transition-all"
             >
               ✕
             </button>
@@ -1548,42 +1546,42 @@ function ExpenseDetailModal({ today, expenses, shopId, T, isDemo, onDeleteExpens
         </div>
 
         {/* Content */}
-        <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1 }}>
-          
+        <div className="p-4 overflow-y-auto flex-1">
           {/* Category Progress Bars */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", color: T.textMuted, letterSpacing: 0.5, marginBottom: 10 }}>
+          <div className="mb-5">
+            <div className="text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-2.5">
               Category Breakdown
             </div>
-            
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="flex flex-col gap-2">
               {Object.values(catBreakdown)
                 .filter((c) => c.total > 0)
                 .map((cat) => {
                   const pct = total > 0 ? Math.round((cat.total / total) * 100) : 0;
+                  const isSelected = selectedCat === cat.name;
                   return (
                     <div
                       key={cat.name}
-                      onClick={() => setSelectedCat(selectedCat === cat.name ? "All" : cat.name)}
-                      style={{
-                        padding: "10px 12px", borderRadius: T.radiusSm,
-                        background: selectedCat === cat.name ? T.primaryLight : T.cardSecondary,
-                        border: `1.5px solid ${selectedCat === cat.name ? T.primary : T.border}`,
-                        cursor: "pointer",
-                      }}
+                      onClick={() => setSelectedCat(isSelected ? "All" : cat.name)}
+                      className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-slate-800/80 border-sky-cyan shadow-sm"
+                          : "bg-slate-800/40 border-slate-700/50 hover:border-slate-600"
+                      }`}
                     >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, color: T.text }}>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-xs font-bold flex items-center gap-1.5 text-slate-200">
                           <span>{cat.icon}</span>
                           <span>{cat.name}</span>
                         </span>
-                        <span style={{ fontSize: 13, fontWeight: 800, color: T.text }}>
-                          Rs. {cat.total.toLocaleString()} <small style={{ color: T.textMuted }}>({pct}%)</small>
+                        <span className="text-xs font-black text-slate-100">
+                          Rs. {cat.total.toLocaleString()} <small className="text-slate-400 font-normal">({pct}%)</small>
                         </span>
                       </div>
-                      
-                      <div style={{ width: "100%", height: 6, borderRadius: 3, background: T.border, overflow: "hidden" }}>
-                        <div style={{ width: `${pct}%`, height: "100%", borderRadius: 3, background: cat.color }} />
+                      <div className="w-full h-1.5 rounded-full bg-slate-700/60 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-300"
+                          style={{ width: `${pct}%`, backgroundColor: cat.color }}
+                        />
                       </div>
                     </div>
                   );
@@ -1593,14 +1591,15 @@ function ExpenseDetailModal({ today, expenses, shopId, T, isDemo, onDeleteExpens
 
           {/* Itemized List */}
           <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", color: T.textMuted, letterSpacing: 0.5 }}>
+            <div className="flex justify-between items-center mb-2.5">
+              <div className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">
                 Itemized Expenses {selectedCat !== "All" && `(${selectedCat})`}
               </div>
               {selectedCat !== "All" && (
                 <button
+                  type="button"
                   onClick={() => setSelectedCat("All")}
-                  style={{ background: "none", border: "none", color: T.primary, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}
+                  className="text-xs font-bold text-sky-cyan hover:underline p-0"
                 >
                   Show All
                 </button>
@@ -1608,61 +1607,40 @@ function ExpenseDetailModal({ today, expenses, shopId, T, isDemo, onDeleteExpens
             </div>
 
             {filteredItems.length === 0 ? (
-              <div style={{ textAlign: "center", color: T.textMuted, padding: 20 }}>No items recorded.</div>
+              <div className="text-center text-slate-400 py-6 text-xs">No items recorded.</div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div className="flex flex-col gap-2">
                 {filteredItems.map((item) => {
                   const catInfo = CATS.find((c) => c.name === item.category) || { icon: "📦", color: "#64748b" };
                   return (
                     <div
                       key={item.id}
-                      style={{
-                        padding: "12px 14px", borderRadius: T.radiusSm,
-                        background: T.cardSecondary, border: `1px solid ${T.border}`,
-                        display: "flex", justifyContent: "space-between", alignItems: "center",
-                      }}
+                      className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/50 flex justify-between items-center hover:border-slate-600 transition-all"
                     >
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{
-                          width: 36, height: 36, borderRadius: "50%", background: T.card,
-                          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
-                          border: `1px solid ${T.border}`,
-                        }}>
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+                        <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-sm flex-shrink-0">
                           {catInfo.icon}
                         </div>
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: 14, color: T.text }}>{item.title}</div>
-                          <div style={{ fontSize: 11, color: T.textMuted }}>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-bold text-xs text-slate-100 truncate">{item.title}</div>
+                          <div className="text-[11px] text-slate-400">
                             {item.category} {item.time ? `• ${item.time}` : ""}
                           </div>
                         </div>
                       </div>
 
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ fontSize: 15, fontWeight: 900, color: T.primary }}>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="text-xs font-black text-rose-crimson">
                           Rs. {Number(item.amount).toLocaleString()}
                         </div>
                         <button
+                          type="button"
                           disabled={deletingId === item.id}
-                          onClick={(e) => handleDelete(e, item)}
+                          onClick={(e) => handleDeletePrompt(e, item)}
                           title="Delete Expense"
-                          style={{
-                            background: "rgba(239,68,68,0.12)",
-                            border: "1px solid rgba(239,68,68,0.25)",
-                            color: T.danger,
-                            borderRadius: 8,
-                            width: 30,
-                            height: 30,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            cursor: "pointer",
-                            fontSize: 13,
-                            padding: 0,
-                            opacity: deletingId === item.id ? 0.4 : 1,
-                          }}
+                          className="w-7 h-7 rounded-lg bg-rose-crimson/10 border border-rose-crimson/30 text-rose-crimson hover:bg-rose-crimson/20 active:scale-90 flex items-center justify-center text-xs transition-all disabled:opacity-40"
                         >
-                          🗑️
+                          {deletingId === item.id ? "..." : "🗑️"}
                         </button>
                       </div>
                     </div>
@@ -1671,23 +1649,35 @@ function ExpenseDetailModal({ today, expenses, shopId, T, isDemo, onDeleteExpens
               </div>
             )}
           </div>
-
         </div>
 
         {/* Footer */}
-        <div style={{ padding: "14px 20px", borderTop: `1px solid ${T.border}`, background: T.cardSecondary }}>
+        <div className="p-3.5 border-t border-slate-border bg-slate-850">
           <button
+            type="button"
             onClick={onClose}
-            style={{
-              width: "100%", padding: "13px", borderRadius: T.radiusSm,
-              background: T.primaryGradient, color: "white", border: "none",
-              fontSize: 15, fontWeight: 700, cursor: "pointer",
-            }}
+            className="w-full min-h-[44px] rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 font-bold text-xs border border-slate-700 active:scale-[0.99] transition-all"
           >
             Done
           </button>
         </div>
       </div>
+
+      {/* ActionSheet Confirmation Dialog */}
+      <ActionSheetModal
+        isOpen={Boolean(expenseToDelete)}
+        title="Delete Expense"
+        message={
+          expenseToDelete
+            ? `Delete expense "${expenseToDelete.title}" (Rs. ${Number(expenseToDelete.amount || 0).toLocaleString()})? This cannot be undone.`
+            : ""
+        }
+        confirmText="Delete Expense"
+        cancelText="Cancel"
+        isDestructive={true}
+        onClose={() => setExpenseToDelete(null)}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }
@@ -1706,6 +1696,12 @@ function generateMonthlyPdf({
   catBreakdown,
   items,
 }) {
+  const cleanAscii = (str, fallback = "") => {
+    if (!str) return fallback;
+    const cleaned = String(str).replace(/[^\x20-\x7E]/g, "").trim();
+    return (cleaned && /[A-Za-z0-9]/.test(cleaned)) ? cleaned : fallback;
+  };
+
   const doc = new jsPDF({
     orientation: "portrait",
     unit: "mm",
@@ -1736,7 +1732,7 @@ function generateMonthlyPdf({
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text(shopName || "Al-Madina General Store", pageWidth - marginX, 12, { align: "right" });
+  doc.text(cleanAscii(shopName, "Al-Madina General Store"), pageWidth - marginX, 12, { align: "right" });
 
   doc.setFontSize(8.5);
   doc.setFont("helvetica", "normal");
@@ -1814,7 +1810,7 @@ function generateMonthlyPdf({
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(30, 41, 59);
-    doc.text(cat.name, marginX + 4, y + 4.2);
+    doc.text(cleanAscii(cat.name, "Other"), marginX + 4, y + 4.2);
     doc.text(`Rs. ${Math.round(cat.total).toLocaleString()}`, marginX + 90, y + 4.2);
     doc.text(`${pct}%`, pageWidth - marginX - 4, y + 4.2, { align: "right" });
 
@@ -1866,8 +1862,8 @@ function generateMonthlyPdf({
     doc.setFont("helvetica", "normal");
     doc.setTextColor(51, 65, 85);
     doc.text(String(item.date || ""), marginX + 4, y + 4.2);
-    doc.text(String(item.title || "").slice(0, 48), marginX + 28, y + 4.2);
-    doc.text(String(item.category || "Other"), marginX + 115, y + 4.2);
+    doc.text(cleanAscii(item.title, "Expense").slice(0, 48), marginX + 28, y + 4.2);
+    doc.text(cleanAscii(item.category, "Other"), marginX + 115, y + 4.2);
 
     doc.setFont("helvetica", "bold");
     doc.setTextColor(225, 29, 72);
@@ -1878,12 +1874,16 @@ function generateMonthlyPdf({
     y += 5.8;
   });
 
-  // Footer on last page
-  doc.setFontSize(7.5);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(148, 163, 184);
-  doc.text("HisaabLive Verified Statement • Powered by AI Surveillance & Tamper Guard", marginX, pageHeight - 8);
-  doc.text(`Page 1 of ${doc.internal.getNumberOfPages()}`, pageWidth - marginX, pageHeight - 8, { align: "right" });
+  // Multi-page footer across all pages
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(148, 163, 184);
+    doc.text("HisaabLive Verified Statement • Powered by AI Surveillance & Tamper Guard", marginX, pageHeight - 8);
+    doc.text(`Page ${p} of ${totalPages}`, pageWidth - marginX, pageHeight - 8, { align: "right" });
+  }
 
   const safeCode = (shopCode || "G10").toUpperCase().replace(/[^A-Z0-9]/g, "");
   doc.save(`HisaabLive-Statement-${safeCode}-${month}.pdf`);
@@ -1975,33 +1975,25 @@ function MonthlyStatementModal({
   };
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 100,
-      display: "flex", alignItems: "flex-end", justifyContent: "center", backdropFilter: "blur(6px)",
-    }}>
-      <div id="printable-statement" style={{
-        background: T.card, width: "100%", maxWidth: 480, maxHeight: "92vh",
-        borderTopLeftRadius: T.radiusXl, borderTopRightRadius: T.radiusXl,
-        display: "flex", flexDirection: "column", overflow: "hidden",
-        boxShadow: T.shadowLg, animation: "slideUp 0.25s ease-out", border: `1px solid ${T.border}`,
-      }}>
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center backdrop-blur-md animate-fade-in">
+      <div
+        id="printable-statement"
+        className="bg-slate-card w-full max-w-lg max-h-[92vh] rounded-t-3xl flex flex-col overflow-hidden shadow-2xl border-t border-x border-slate-border animate-slide-up pb-safe"
+      >
         {/* Header */}
-        <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.border}` }} className="no-print">
-          <div style={{ width: 40, height: 4, borderRadius: 2, background: T.border, margin: "0 auto 12px" }} />
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="p-4 border-b border-slate-border no-print">
+          <div className="w-10 h-1 rounded-full bg-slate-700/60 mx-auto mb-3" />
+          <div className="flex justify-between items-center">
             <div>
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: T.text }}>Monthly Statement</h3>
-              <p style={{ margin: "2px 0 0", fontSize: 13, color: T.textMuted }}>
-                Month: <b style={{ color: T.primary }}>{ym}</b> • {shop ? shop.shop_name : "Al-Madina Store"}
+              <h3 className="m-0 text-base font-bold text-slate-100">Monthly Statement</h3>
+              <p className="m-0 text-xs text-slate-400 mt-0.5">
+                Month: <b className="text-sky-cyan">{ym}</b> • {shop ? shop.shop_name : "Al-Madina Store"}
               </p>
             </div>
             <button
+              type="button"
               onClick={onClose}
-              style={{
-                background: T.cardSecondary, border: `1px solid ${T.border}`, borderRadius: "50%",
-                width: 32, height: 32, cursor: "pointer", fontSize: 16,
-                fontWeight: 700, color: T.textMuted, display: "flex", alignItems: "center", justifyContent: "center",
-              }}
+              className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-bold flex items-center justify-center text-sm hover:bg-slate-700 active:scale-95 transition-all"
             >
               ✕
             </button>
@@ -2009,97 +2001,72 @@ function MonthlyStatementModal({
         </div>
 
         {/* Scrollable Content */}
-        <div style={{ padding: "18px 20px", overflowY: "auto", flex: 1 }}>
-          
+        <div className="p-4 overflow-y-auto flex-1">
           {/* Action Download & Print Bar */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 18 }} className="no-print">
+          <div className="flex gap-2.5 mb-4 no-print">
             <button
+              type="button"
               disabled={downloading}
               onClick={handleDownloadPdf}
-              style={{
-                flex: 1.3, padding: "12px 14px", borderRadius: T.radiusSm,
-                background: T.primaryGradient, color: "white", border: "none",
-                fontSize: 13, fontWeight: 800, cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                boxShadow: "0 4px 12px rgba(244,63,94,0.3)",
-              }}
+              className="flex-1 py-2.5 px-4 rounded-xl bg-sky-cyan text-slate-950 hover:bg-sky-cyan/90 font-black text-xs shadow-md shadow-sky-cyan/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               <span>{downloading ? "⏳ Generating..." : "📥 Download PDF Statement"}</span>
             </button>
 
             <button
+              type="button"
               onClick={handlePrint}
-              style={{
-                flex: 0.9, padding: "12px 14px", borderRadius: T.radiusSm,
-                background: T.cardSecondary, color: T.text, border: `1px solid ${T.border}`,
-                fontSize: 13, fontWeight: 700, cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-              }}
+              className="py-2.5 px-4 rounded-xl bg-slate-850 hover:bg-slate-800 text-slate-200 border border-slate-700 text-xs font-bold active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
             >
               <span>🖨️ Print</span>
             </button>
           </div>
 
           {/* 4 Financial KPI Summary Cards */}
-          <div style={{
-            display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20,
-          }}>
-            <div style={{
-              background: T.cardSecondary, padding: "12px 14px", borderRadius: T.radiusSm,
-              border: `1px solid ${T.border}`,
-            }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: T.textMuted, textTransform: "uppercase" }}>
+          <div className="grid grid-cols-2 gap-2.5 mb-5">
+            <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/60">
+              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
                 Total Sale
               </div>
-              <div style={{ fontSize: 18, fontWeight: 900, color: T.text, marginTop: 4 }}>
+              <div className="text-lg font-black text-emerald-mint mt-1">
                 Rs. {Math.round(totalSale).toLocaleString()}
               </div>
             </div>
 
-            <div style={{
-              background: T.cardSecondary, padding: "12px 14px", borderRadius: T.radiusSm,
-              border: `1px solid ${T.border}`,
-            }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: T.primary, textTransform: "uppercase" }}>
+            <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/60">
+              <div className="text-[11px] font-bold text-rose-crimson uppercase tracking-wide">
                 Total Kharcha
               </div>
-              <div style={{ fontSize: 18, fontWeight: 900, color: T.primary, marginTop: 4 }}>
+              <div className="text-lg font-black text-rose-crimson mt-1">
                 Rs. {Math.round(totalExpense).toLocaleString()}
               </div>
             </div>
 
-            <div style={{
-              background: T.cardSecondary, padding: "12px 14px", borderRadius: T.radiusSm,
-              border: `1px solid ${T.border}`,
-            }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: T.success, textTransform: "uppercase" }}>
+            <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/60">
+              <div className="text-[11px] font-bold text-emerald-mint uppercase tracking-wide">
                 Net Profit (Munafa)
               </div>
-              <div style={{ fontSize: 18, fontWeight: 900, color: netProfit >= 0 ? T.success : T.danger, marginTop: 4 }}>
+              <div className={`text-lg font-black mt-1 ${netProfit >= 0 ? "text-emerald-mint" : "text-rose-crimson"}`}>
                 Rs. {Math.round(netProfit).toLocaleString()}
               </div>
             </div>
 
-            <div style={{
-              background: T.cardSecondary, padding: "12px 14px", borderRadius: T.radiusSm,
-              border: `1px solid ${T.border}`,
-            }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: "#3b82f6", textTransform: "uppercase" }}>
+            <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/60">
+              <div className="text-[11px] font-bold text-sky-cyan uppercase tracking-wide">
                 Profit Margin
               </div>
-              <div style={{ fontSize: 18, fontWeight: 900, color: "#3b82f6", marginTop: 4 }}>
+              <div className="text-lg font-black text-sky-cyan mt-1">
                 {margin}%
               </div>
             </div>
           </div>
 
-          {/* Category Breakdown */}
-          <div style={{ marginBottom: 22 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", color: T.textMuted, letterSpacing: 0.5, marginBottom: 10 }}>
+          {/* Category Breakdown with Progress Bars */}
+          <div className="mb-5">
+            <div className="text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-2.5">
               Monthly Expense Categories
             </div>
-            
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="flex flex-col gap-2">
               {catBreakdown
                 .filter((c) => c.total > 0)
                 .map((cat) => {
@@ -2109,26 +2076,27 @@ function MonthlyStatementModal({
                     <div
                       key={cat.name}
                       onClick={() => setSelectedCat(isSelected ? "All" : cat.name)}
-                      style={{
-                        padding: "10px 12px", borderRadius: T.radiusSm,
-                        background: isSelected ? T.primaryLight : T.cardSecondary,
-                        border: `1.5px solid ${isSelected ? T.primary : T.border}`,
-                        cursor: "pointer",
-                      }}
+                      className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-slate-800/80 border-sky-cyan shadow-sm"
+                          : "bg-slate-800/40 border-slate-700/50 hover:border-slate-600"
+                      }`}
                     >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, color: T.text }}>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-xs font-bold flex items-center gap-1.5 text-slate-200">
                           <span>{cat.icon}</span>
                           <span>{cat.name}</span>
-                          <span style={{ fontSize: 11, color: T.textMuted }}>({cat.count} txns)</span>
+                          <span className="text-[11px] text-slate-400">({cat.count} txns)</span>
                         </span>
-                        <span style={{ fontSize: 13, fontWeight: 800, color: T.text }}>
-                          Rs. {cat.total.toLocaleString()} <small style={{ color: T.textMuted }}>({pct}%)</small>
+                        <span className="text-xs font-black text-slate-100">
+                          Rs. {cat.total.toLocaleString()} <small className="text-slate-400 font-normal">({pct}%)</small>
                         </span>
                       </div>
-                      
-                      <div style={{ width: "100%", height: 6, borderRadius: 3, background: T.border, overflow: "hidden" }}>
-                        <div style={{ width: `${pct}%`, height: "100%", borderRadius: 3, background: cat.color }} />
+                      <div className="w-full h-1.5 rounded-full bg-slate-700/60 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-300"
+                          style={{ width: `${pct}%`, backgroundColor: cat.color }}
+                        />
                       </div>
                     </div>
                   );
@@ -2138,49 +2106,42 @@ function MonthlyStatementModal({
 
           {/* Itemized Expenses List */}
           <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", color: T.textMuted, letterSpacing: 0.5 }}>
+            <div className="flex justify-between items-center mb-2.5">
+              <div className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">
                 Monthly Expenses ({filteredItems.length}) {selectedCat !== "All" && `• ${selectedCat}`}
               </div>
               {selectedCat !== "All" && (
                 <button
+                  type="button"
                   onClick={() => setSelectedCat("All")}
-                  style={{ background: "none", border: "none", color: T.primary, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}
+                  className="text-xs font-bold text-sky-cyan hover:underline p-0"
                 >
                   Show All
                 </button>
               )}
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="flex flex-col gap-2">
               {filteredItems.map((item) => {
                 const catInfo = CATS.find((c) => c.name === item.category) || { icon: "📦", color: "#64748b" };
                 return (
                   <div
                     key={item.id}
-                    style={{
-                      padding: "11px 13px", borderRadius: T.radiusSm,
-                      background: T.cardSecondary, border: `1px solid ${T.border}`,
-                      display: "flex", justifyContent: "space-between", alignItems: "center",
-                    }}
+                    className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/50 flex justify-between items-center hover:border-slate-600 transition-all"
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{
-                        width: 34, height: 34, borderRadius: "50%", background: T.card,
-                        display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15,
-                        border: `1px solid ${T.border}`,
-                      }}>
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+                      <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-sm flex-shrink-0">
                         {catInfo.icon}
                       </div>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 13.5, color: T.text }}>{item.title}</div>
-                        <div style={{ fontSize: 11, color: T.textMuted }}>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-xs text-slate-100 truncate">{item.title}</div>
+                        <div className="text-[11px] text-slate-400">
                           {item.date} • {item.category}
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ fontSize: 14.5, fontWeight: 900, color: T.primary }}>
+                    <div className="text-xs font-black text-rose-crimson flex-shrink-0">
                       Rs. {Number(item.amount).toLocaleString()}
                     </div>
                   </div>
@@ -2188,23 +2149,18 @@ function MonthlyStatementModal({
               })}
             </div>
           </div>
-
         </div>
 
         {/* Footer */}
-        <div style={{ padding: "14px 20px", borderTop: `1px solid ${T.border}`, background: T.cardSecondary }} className="no-print">
+        <div className="p-3.5 border-t border-slate-border bg-slate-850 no-print">
           <button
+            type="button"
             onClick={onClose}
-            style={{
-              width: "100%", padding: "13px", borderRadius: T.radiusSm,
-              background: T.primaryGradient, color: "white", border: "none",
-              fontSize: 15, fontWeight: 700, cursor: "pointer",
-            }}
+            className="w-full min-h-[44px] rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 font-bold text-xs border border-slate-700 active:scale-[0.99] transition-all"
           >
             Close Statement
           </button>
         </div>
-
       </div>
     </div>
   );
@@ -2280,52 +2236,37 @@ function ExpenseForm({ shopId, T, isDemo, onAddDemoExpense }) {
   };
 
   return (
-    <div style={{
-      background: T.card, borderRadius: T.radius, padding: "18px",
-      border: `1px solid ${T.border}`, boxShadow: T.shadowSm,
-    }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <h4 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: T.text }}>+ Add Kharcha (Expense)</h4>
-        <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 600 }}>Quick Entry</span>
+    <div className="rounded-2xl bg-slate-card border border-slate-border p-4 shadow-sm">
+      <div className="flex justify-between items-center mb-3">
+        <h4 className="m-0 text-sm font-bold text-slate-100">+ Add Kharcha (Expense)</h4>
+        <span className="text-[11px] text-slate-400 font-semibold px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700">Quick Entry</span>
       </div>
 
-      {err && <div style={{ color: T.primary, fontSize: 13, marginBottom: 8 }}>⚠️ {err}</div>}
-      {success && <div style={{ color: T.success, fontSize: 13, marginBottom: 8, fontWeight: 700 }}>✓ Kharcha saved successfully!</div>}
+      {err && <div className="text-rose-crimson text-xs mb-2 font-semibold">⚠️ {err}</div>}
+      {success && <div className="text-emerald-mint text-xs mb-2 font-bold">✓ Kharcha saved successfully!</div>}
 
       <form onSubmit={save}>
         <input
           placeholder="Title (e.g. Bijli Bill, Petrol, Staff Lunch)"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          style={{
-            width: "100%", padding: "12px 14px", borderRadius: T.radiusSm,
-            border: `1.5px solid ${T.border}`, fontSize: 14, outline: "none",
-            marginBottom: 10, background: T.inputBg, color: T.text,
-          }}
+          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-sky-cyan focus:ring-1 focus:ring-sky-cyan text-sm text-slate-100 placeholder-slate-500 outline-none mb-2.5 transition-all"
         />
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.3fr", gap: 10, marginBottom: 12 }}>
+        <div className="grid grid-cols-[1fr_1.3fr] gap-2.5 mb-3">
           <input
             placeholder="Amount (Rs.)"
             type="number"
             min="1"
             value={amt}
             onChange={(e) => setAmt(e.target.value)}
-            style={{
-              width: "100%", padding: "12px 14px", borderRadius: T.radiusSm,
-              border: `1.5px solid ${T.border}`, fontSize: 14, outline: "none",
-              background: T.inputBg, color: T.text, fontWeight: 700,
-            }}
+            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-sky-cyan focus:ring-1 focus:ring-sky-cyan text-sm font-bold text-slate-100 placeholder-slate-500 outline-none transition-all"
           />
 
           <select
             value={cat}
             onChange={(e) => setCat(e.target.value)}
-            style={{
-              width: "100%", padding: "12px 10px", borderRadius: T.radiusSm,
-              border: `1.5px solid ${T.border}`, fontSize: 13, outline: "none",
-              background: T.inputBg, color: T.text, cursor: "pointer", fontWeight: 600,
-            }}
+            className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-sky-cyan focus:ring-1 focus:ring-sky-cyan text-xs font-semibold text-slate-200 outline-none cursor-pointer transition-all"
           >
             {CATS.map((c) => (
               <option key={c.name} value={c.name}>{c.icon} {c.name}</option>
@@ -2336,12 +2277,7 @@ function ExpenseForm({ shopId, T, isDemo, onAddDemoExpense }) {
         <button
           disabled={busy}
           type="submit"
-          style={{
-            width: "100%", padding: "13px", borderRadius: T.radiusSm,
-            background: T.primaryGradient, color: "white", border: "none",
-            fontSize: 15, fontWeight: 700, cursor: "pointer",
-            boxShadow: T.shadowSm, opacity: busy ? 0.7 : 1,
-          }}
+          className="w-full min-h-[46px] rounded-xl bg-gradient-to-r from-rose-crimson to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white font-bold text-sm shadow-md shadow-rose-crimson/20 active:scale-[0.99] transition-all flex items-center justify-center disabled:opacity-50"
         >
           {busy ? "Saving..." : "Save Kharcha"}
         </button>
@@ -2421,32 +2357,29 @@ function Khata({ shopId, t, T, isDemo, demoCustomers, setDemoCustomers, demoEntr
   return (
     <div>
       {/* Khata Hero Card */}
-      <div style={{
-        background: T.heroGradient, borderRadius: T.radiusXl, padding: "24px 22px",
-        color: "white", marginBottom: 16, boxShadow: T.shadowLg, border: `1px solid ${T.border}`,
-      }}>
-        <div style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "rgba(255,255,255,0.75)" }}>
+      <div className="rounded-2xl bg-gradient-to-br from-slate-900 via-slate-850 to-slate-800 border border-amber-warm/30 p-5 text-white mb-4 shadow-lg relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-amber-warm/10 blur-3xl pointer-events-none -mr-8 -mt-8" />
+        <div className="text-xs font-bold uppercase tracking-wider text-amber-warm/90">
           Total Khata to Receive (Baqaya)
         </div>
-        <div style={{ fontSize: 34, fontWeight: 900, margin: "8px 0 4px" }}>
+        <div className="text-3xl font-black text-amber-warm my-1.5 tracking-tight">
           Rs. {Math.round(receivable).toLocaleString("en-US")}
         </div>
-        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
+        <div className="text-xs text-slate-400">
           {activeCustomers.length} registered customers
         </div>
       </div>
 
-      {/* Search Input */}
-      <input
-        placeholder="🔍 Search customer by name or phone..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        style={{
-          width: "100%", padding: "13px 16px", borderRadius: T.radiusSm,
-          border: `1.5px solid ${T.border}`, fontSize: 14, outline: "none",
-          marginBottom: 12, background: T.inputBg, color: T.text, boxShadow: T.shadowSm,
-        }}
-      />
+      {/* Clean Search Bar */}
+      <div className="relative mb-3">
+        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">🔍</span>
+        <input
+          placeholder={t.search || "Search customer by name or phone..."}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full pl-9 pr-4 py-2.5 bg-slate-card border border-slate-border focus:border-sky-cyan rounded-xl text-sm text-slate-100 placeholder-slate-400 outline-none shadow-sm transition-all"
+        />
+      </div>
 
       {adding ? (
         <AddCustomer
@@ -2462,56 +2395,62 @@ function Khata({ shopId, t, T, isDemo, demoCustomers, setDemoCustomers, demoEntr
         />
       ) : (
         <button
+          type="button"
           onClick={() => setAdding(true)}
-          style={{
-            width: "100%", padding: "14px", borderRadius: T.radiusSm,
-            background: T.primaryGradient, color: "white", border: "none",
-            fontSize: 15, fontWeight: 700, cursor: "pointer",
-            marginBottom: 16, boxShadow: T.shadowSm,
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-          }}
+          className="w-full min-h-[46px] rounded-xl bg-gradient-to-r from-sky-cyan to-blue-500 hover:from-sky-cyan/90 hover:to-blue-600 text-slate-950 font-black text-sm shadow-md shadow-sky-cyan/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2 mb-4"
         >
           <span>+</span>
-          <span>Add New Customer to Khata</span>
+          <span>{t.add_customer || "Add New Customer to Khata"}</span>
         </button>
       )}
 
       {/* Customer List */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div className="flex flex-col gap-2">
         {list.map((c) => (
           <div
             key={c.id}
             onClick={() => setSelectedId(c.id)}
-            style={{
-              background: T.card, borderRadius: T.radius, padding: "14px 16px",
-              border: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between",
-              alignItems: "center", cursor: "pointer", boxShadow: T.shadowSm,
-            }}
+            className="rounded-2xl bg-slate-card border border-slate-border hover:border-slate-700 p-3.5 flex justify-between items-center cursor-pointer shadow-sm active:scale-[0.99] transition-all"
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{
-                width: 42, height: 42, borderRadius: "50%",
-                background: (c.balance > 0) ? T.primaryLight : (c.balance < 0) ? "rgba(16,185,129,0.15)" : T.cardSecondary,
-                color: (c.balance > 0) ? T.primary : (c.balance < 0) ? T.success : T.textMuted,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontWeight: 800, fontSize: 16,
-              }}>
+            <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm flex-shrink-0 ${
+                  c.balance > 0
+                    ? "bg-amber-warm/15 text-amber-warm border border-amber-warm/30"
+                    : c.balance < 0
+                    ? "bg-emerald-mint/15 text-emerald-mint border border-emerald-mint/30"
+                    : "bg-slate-800 text-slate-400 border border-slate-700"
+                }`}
+              >
                 {(c.name || "U")[0].toUpperCase()}
               </div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: T.text }}>{c.name}</div>
-                {c.phone && <div style={{ fontSize: 12, color: T.textMuted }}>{c.phone}</div>}
+              <div className="min-w-0 flex-1">
+                <div className="font-bold text-sm text-slate-100 truncate">{c.name}</div>
+                {c.phone && <div className="text-xs text-slate-400 mt-0.5">{c.phone}</div>}
               </div>
             </div>
 
-            <div style={{ textAlign: "right" }}>
-              <div style={{
-                fontWeight: 900, fontSize: 16,
-                color: c.balance > 0 ? T.primary : c.balance < 0 ? T.success : T.textMuted,
-              }}>
+            <div className="text-right flex-shrink-0">
+              <div
+                className={`font-black text-base ${
+                  c.balance > 0
+                    ? "text-amber-warm"
+                    : c.balance < 0
+                    ? "text-emerald-mint"
+                    : "text-slate-400"
+                }`}
+              >
                 Rs. {Math.abs(c.balance || 0).toLocaleString()}
               </div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: c.balance > 0 ? T.primary : c.balance < 0 ? T.success : T.textMuted }}>
+              <div
+                className={`text-[11px] font-bold ${
+                  c.balance > 0
+                    ? "text-amber-warm"
+                    : c.balance < 0
+                    ? "text-emerald-mint"
+                    : "text-slate-400"
+                }`}
+              >
                 {c.balance > 0 ? "Baqaya (owes)" : c.balance < 0 ? "Advance paid" : "Cleared"}
               </div>
             </div>
@@ -2557,52 +2496,35 @@ function AddCustomer({ t, T, shopId, isDemo, onAddDemoCustomer, onDone }) {
   };
 
   return (
-    <div style={{
-      background: T.card, borderRadius: T.radius, padding: 18,
-      border: `2px solid ${T.primary}`, marginBottom: 14, boxShadow: T.shadowSm,
-    }}>
-      <h4 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 800, color: T.text }}>+ Add Khata Customer</h4>
+    <div className="rounded-2xl bg-slate-card border border-sky-cyan/40 p-4 mb-4 shadow-sm">
+      <h4 className="m-0 mb-3 text-sm font-bold text-slate-100">+ Add Khata Customer</h4>
       <input
         placeholder="Customer Full Name"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        style={{
-          width: "100%", padding: "12px 14px", borderRadius: T.radiusSm,
-          border: `1.5px solid ${T.border}`, fontSize: 14, outline: "none", marginBottom: 10,
-          background: T.inputBg, color: T.text,
-        }}
+        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-sky-cyan text-sm text-slate-100 placeholder-slate-500 outline-none mb-2.5"
       />
       <input
         placeholder="Phone Number (e.g. 0300-1234567)"
         inputMode="tel"
         value={phone}
         onChange={(e) => setPhone(e.target.value)}
-        style={{
-          width: "100%", padding: "12px 14px", borderRadius: T.radiusSm,
-          border: `1.5px solid ${T.border}`, fontSize: 14, outline: "none", marginBottom: 12,
-          background: T.inputBg, color: T.text,
-        }}
+        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-sky-cyan text-sm text-slate-100 placeholder-slate-500 outline-none mb-3"
       />
-      {err && <p style={{ color: T.primary, fontSize: 13, margin: "0 0 10px" }}>{err}</p>}
-      <div style={{ display: "flex", gap: 10 }}>
+      {err && <p className="text-rose-crimson text-xs mb-2.5">{err}</p>}
+      <div className="flex gap-2.5">
         <button
+          type="button"
           disabled={busy}
           onClick={save}
-          style={{
-            flex: 1, padding: "12px", borderRadius: T.radiusSm,
-            background: T.primaryGradient, color: "white", border: "none",
-            fontSize: 14, fontWeight: 700, cursor: "pointer",
-          }}
+          className="flex-1 py-2.5 px-4 rounded-xl bg-sky-cyan text-slate-950 font-bold text-xs hover:bg-sky-cyan/90 active:scale-[0.98] transition-all disabled:opacity-50"
         >
           {busy ? "Saving..." : "Save Customer"}
         </button>
         <button
+          type="button"
           onClick={onDone}
-          style={{
-            padding: "12px 18px", borderRadius: T.radiusSm,
-            background: T.cardSecondary, color: T.text, border: `1px solid ${T.border}`,
-            fontSize: 14, fontWeight: 600, cursor: "pointer",
-          }}
+          className="py-2.5 px-4 rounded-xl bg-slate-800 text-slate-300 font-semibold text-xs border border-slate-700 active:scale-[0.98] transition-all"
         >
           Cancel
         </button>
@@ -2631,6 +2553,8 @@ function CustomerLedger({
   const [err, setErr] = useState("");
   const [deletingCust, setDeletingCust] = useState(false);
   const [deletingEntryId, setDeletingEntryId] = useState("");
+  const [showDeleteCustSheet, setShowDeleteCustSheet] = useState(false);
+  const [entryToDelete, setEntryToDelete] = useState(null);
 
   useEffect(() => {
     if (isDemo) return;
@@ -2640,14 +2564,19 @@ function CustomerLedger({
 
   const activeEntries = isDemo ? demoEntries : entries;
 
-  const handleDeleteCustomer = async () => {
-    if (!window.confirm(`Delete customer "${customer.name}" and all transaction history? This cannot be undone.`)) return;
+  const confirmDeleteCustomer = async () => {
+    setShowDeleteCustSheet(false);
     setDeletingCust(true);
     try {
       if (isDemo) {
         onDeleteCustomer(customer.id);
       } else {
-        await call("khataDeleteCustomer", { customerId: customer.id });
+        try {
+          await call("khataDeleteCustomer", { customerId: customer.id });
+        } catch (cfErr) {
+          console.warn("Cloud function khataDeleteCustomer failed, falling back to direct delete:", cfErr);
+          await deleteDoc(doc(db, "shops", shopId, "khata_customers", customer.id));
+        }
         onBack();
       }
     } catch (e) {
@@ -2657,8 +2586,10 @@ function CustomerLedger({
     }
   };
 
-  const handleDeleteEntry = async (entry) => {
-    if (!window.confirm(`Delete this ${entry.type === "udhaar" ? "Udhaar" : "Payment"} of Rs. ${Number(entry.amount).toLocaleString()}? Balance will be adjusted automatically.`)) return;
+  const confirmDeleteEntry = async () => {
+    if (!entryToDelete) return;
+    const entry = entryToDelete;
+    setEntryToDelete(null);
     setDeletingEntryId(entry.id);
     try {
       if (isDemo) {
@@ -2666,7 +2597,12 @@ function CustomerLedger({
         const newBal = (customer.balance || 0) + revAmount;
         onDeleteDemoEntry(entry.id, newBal);
       } else {
-        await call("khataDeleteEntry", { customerId: customer.id, entryId: entry.id });
+        try {
+          await call("khataDeleteEntry", { customerId: customer.id, entryId: entry.id });
+        } catch (cfErr) {
+          console.warn("Cloud function khataDeleteEntry failed, falling back to direct delete:", cfErr);
+          await deleteDoc(doc(db, "shops", shopId, "khata_customers", customer.id, "entries", entry.id));
+        }
       }
     } catch (err) {
       alert("Failed to delete entry: " + (err.message || err));
@@ -2719,88 +2655,74 @@ function CustomerLedger({
   return (
     <div>
       <button
+        type="button"
         onClick={onBack}
-        style={{
-          background: "none", border: "none", color: T.primary, fontWeight: 700,
-          fontSize: 14, cursor: "pointer", padding: "8px 0", marginBottom: 10,
-          display: "flex", alignItems: "center", gap: 6,
-        }}
+        className="flex items-center gap-2 text-sky-cyan font-bold text-sm mb-3.5 hover:underline active:scale-98 transition-all"
       >
-        &larr; Back to Customers
+        <span>&larr;</span> Back to Customers
       </button>
 
       {/* Customer Header Info */}
-      <div style={{
-        background: T.card, borderRadius: T.radius, padding: 18,
-        border: `1px solid ${T.border}`, boxShadow: T.shadowSm, marginBottom: 14,
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div className="rounded-2xl bg-slate-card border border-slate-border p-4 sm:p-5 mb-4 shadow-sm">
+        <div className="flex justify-between items-start gap-3">
           <div>
-            <div style={{ fontSize: 20, fontWeight: 900, color: T.text }}>{customer.name}</div>
-            {customer.phone && <div style={{ fontSize: 13, color: T.textMuted }}>{customer.phone}</div>}
+            <div className="text-xl sm:text-2xl font-black text-slate-100 tracking-tight">{customer.name}</div>
+            {customer.phone && <div className="text-xs text-slate-400 mt-0.5">{customer.phone}</div>}
           </div>
           <button
-            onClick={handleDeleteCustomer}
+            type="button"
+            onClick={() => setShowDeleteCustSheet(true)}
             disabled={deletingCust}
             title="Delete Customer"
-            style={{
-              background: "rgba(239,68,68,0.12)",
-              border: "1px solid rgba(239,68,68,0.25)",
-              color: T.danger,
-              borderRadius: 8,
-              padding: "6px 12px",
-              cursor: "pointer",
-              fontSize: 12,
-              fontWeight: 700,
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              opacity: deletingCust ? 0.5 : 1,
-            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-crimson/10 border border-rose-crimson/25 text-rose-crimson text-xs font-bold hover:bg-rose-crimson/20 active:scale-95 transition-all disabled:opacity-50"
           >
-            🗑️ Delete Customer
+            🗑️ {deletingCust ? "Deleting..." : "Delete Customer"}
           </button>
         </div>
-        <div style={{
-          marginTop: 12, fontSize: 28, fontWeight: 900,
-          color: bal > 0 ? T.primary : bal < 0 ? T.success : T.textMuted,
-        }}>
-          Rs. {Math.abs(bal).toLocaleString()}{" "}
-          <span style={{ fontSize: 14, fontWeight: 700 }}>
-            {bal > 0 ? "(Baqaya / Owes)" : bal < 0 ? "(Advance)" : "(Cleared)"}
+        <div className="mt-3.5 flex items-baseline gap-2.5">
+          <span
+            className={`text-2xl sm:text-3xl font-black tracking-tight ${
+              bal > 0 ? "text-amber-warm" : bal < 0 ? "text-emerald-mint" : "text-slate-400"
+            }`}
+          >
+            Rs. {Math.abs(bal).toLocaleString()}
+          </span>
+          <span
+            className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+              bal > 0
+                ? "bg-amber-warm/15 text-amber-warm border-amber-warm/30"
+                : bal < 0
+                ? "bg-emerald-mint/15 text-emerald-mint border-emerald-mint/30"
+                : "bg-slate-800 text-slate-400 border-slate-700"
+            }`}
+          >
+            {bal > 0 ? "Baqaya / Owes" : bal < 0 ? "Advance" : "Cleared"}
           </span>
         </div>
       </div>
 
       {/* Add Entry Card */}
-      <div style={{
-        background: T.card, borderRadius: T.radius, padding: 18,
-        border: `1px solid ${T.border}`, boxShadow: T.shadowSm, marginBottom: 14,
-      }}>
-        <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+      <div className="rounded-2xl bg-slate-card border border-slate-border p-4 sm:p-5 mb-4 shadow-sm">
+        <div className="flex gap-2.5 mb-3.5">
           <button
             type="button"
             onClick={() => setType("udhaar")}
-            style={{
-              flex: 1, padding: "12px", borderRadius: T.radiusSm, fontWeight: 800, fontSize: 14,
-              border: `2px solid ${T.primary}`,
-              background: type === "udhaar" ? T.primary : "transparent",
-              color: type === "udhaar" ? "white" : T.primary,
-              cursor: "pointer",
-            }}
+            className={`flex-1 py-3 px-3 rounded-xl font-black text-sm tracking-wide transition-all active:scale-[0.98] ${
+              type === "udhaar"
+                ? "bg-amber-warm text-slate-950 shadow-sm"
+                : "bg-slate-900/60 text-slate-400 border border-slate-700/60 hover:text-slate-200"
+            }`}
           >
             Udhaar Diya (+)
           </button>
           <button
             type="button"
             onClick={() => setType("payment")}
-            style={{
-              flex: 1, padding: "12px", borderRadius: T.radiusSm, fontWeight: 800, fontSize: 14,
-              border: `2px solid ${T.success}`,
-              background: type === "payment" ? T.success : "transparent",
-              color: type === "payment" ? "white" : T.success,
-              cursor: "pointer",
-            }}
+            className={`flex-1 py-3 px-3 rounded-xl font-black text-sm tracking-wide transition-all active:scale-[0.98] ${
+              type === "payment"
+                ? "bg-emerald-mint text-slate-950 shadow-sm"
+                : "bg-slate-900/60 text-slate-400 border border-slate-700/60 hover:text-slate-200"
+            }`}
           >
             Payment Mili (-)
           </button>
@@ -2812,73 +2734,57 @@ function CustomerLedger({
           min="1"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          style={{
-            width: "100%", padding: "12px 14px", borderRadius: T.radiusSm,
-            border: `1.5px solid ${T.border}`, fontSize: 15, outline: "none",
-            marginBottom: 10, fontWeight: 700, background: T.inputBg, color: T.text,
-          }}
+          className="w-full px-3.5 py-3 rounded-xl bg-slate-900 border border-slate-700 focus:border-sky-cyan text-base font-bold text-slate-100 placeholder-slate-500 outline-none mb-2.5"
         />
         <input
           placeholder="Note (e.g. 5kg Rice, Flour sack, Cash received)"
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          style={{
-            width: "100%", padding: "12px 14px", borderRadius: T.radiusSm,
-            border: `1.5px solid ${T.border}`, fontSize: 14, outline: "none", marginBottom: 12,
-            background: T.inputBg, color: T.text,
-          }}
+          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-sky-cyan text-sm text-slate-100 placeholder-slate-500 outline-none mb-3"
         />
-        {err && <p style={{ color: T.primary, fontSize: 13, margin: "0 0 10px" }}>{err}</p>}
+        {err && <p className="text-rose-crimson text-xs mb-2.5 font-medium">{err}</p>}
         
         <button
+          type="button"
           disabled={busy}
           onClick={save}
-          style={{
-            width: "100%", padding: "14px", borderRadius: T.radiusSm,
-            background: T.heroGradient, color: "white", border: "none",
-            fontSize: 15, fontWeight: 700, cursor: "pointer", opacity: busy ? 0.6 : 1,
-          }}
+          className="w-full min-h-[44px] py-3 px-4 rounded-xl bg-sky-cyan hover:bg-sky-cyan/90 text-slate-950 font-black text-sm tracking-wide transition-all active:scale-[0.98] disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
         >
           {busy ? "Recording Entry..." : "Save Entry"}
         </button>
       </div>
 
       {/* Transaction History */}
-      <div style={{
-        background: T.card, borderRadius: T.radius, padding: 18,
-        border: `1px solid ${T.border}`, boxShadow: T.shadowSm,
-      }}>
-        <h4 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 800, color: T.text }}>Ledger History</h4>
-        {activeEntries.length === 0 && <p style={{ color: T.textMuted, textAlign: "center", fontSize: 13 }}>No entries yet.</p>}
+      <div className="rounded-2xl bg-slate-card border border-slate-border p-4 sm:p-5 shadow-sm">
+        <h4 className="m-0 mb-3 text-sm font-bold text-slate-100">Ledger History</h4>
+        {activeEntries.length === 0 && (
+          <p className="text-slate-500 text-center py-6 text-xs">No entries yet.</p>
+        )}
         {activeEntries.map((e) => (
-          <div key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
+          <div
+            key={e.id}
+            className="flex justify-between items-center py-2.5 border-b border-slate-800/80 last:border-0"
+          >
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{e.note || (e.type === "udhaar" ? "Udhaar" : "Payment")}</div>
-              <div style={{ fontSize: 11, color: T.textMuted }}>{e.date}</div>
+              <div className="text-sm font-bold text-slate-200">
+                {e.note || (e.type === "udhaar" ? "Udhaar" : "Payment")}
+              </div>
+              <div className="text-[11px] text-slate-500 mt-0.5">{e.date}</div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ fontWeight: 900, fontSize: 15, color: e.type === "udhaar" ? T.primary : T.success }}>
+            <div className="flex items-center gap-3">
+              <div
+                className={`font-black text-sm ${
+                  e.type === "udhaar" ? "text-amber-warm" : "text-emerald-mint"
+                }`}
+              >
                 {e.type === "udhaar" ? "+" : "-"}Rs. {Number(e.amount).toLocaleString()}
               </div>
               <button
+                type="button"
                 disabled={deletingEntryId === e.id}
-                onClick={() => handleDeleteEntry(e)}
+                onClick={() => setEntryToDelete(e)}
                 title="Delete Entry"
-                style={{
-                  background: "rgba(239,68,68,0.1)",
-                  border: "1px solid rgba(239,68,68,0.2)",
-                  borderRadius: 6,
-                  color: T.danger,
-                  width: 26,
-                  height: 26,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  fontSize: 12,
-                  padding: 0,
-                  opacity: deletingEntryId === e.id ? 0.4 : 1,
-                }}
+                className="w-7 h-7 rounded-lg flex items-center justify-center bg-rose-crimson/10 border border-rose-crimson/25 text-rose-crimson hover:bg-rose-crimson/20 active:scale-95 transition-all text-xs disabled:opacity-40"
               >
                 🗑️
               </button>
@@ -2886,6 +2792,35 @@ function CustomerLedger({
           </div>
         ))}
       </div>
+
+      {/* Action Sheets for Confirmations */}
+      <ActionSheetModal
+        isOpen={showDeleteCustSheet}
+        title={`Delete Customer "${customer.name}"?`}
+        message="This will permanently delete this customer and all their transaction history. This action cannot be undone."
+        confirmText={deletingCust ? "Deleting..." : "Delete Customer"}
+        cancelText="Cancel"
+        isDestructive={true}
+        icon="🗑️"
+        onConfirm={confirmDeleteCustomer}
+        onClose={() => setShowDeleteCustSheet(false)}
+      />
+
+      <ActionSheetModal
+        isOpen={Boolean(entryToDelete)}
+        title={entryToDelete ? `Delete ${entryToDelete.type === "udhaar" ? "Udhaar" : "Payment"} Entry?` : ""}
+        message={
+          entryToDelete
+            ? `Delete this ${entryToDelete.type === "udhaar" ? "Udhaar" : "Payment"} of Rs. ${Number(entryToDelete.amount).toLocaleString()}? Balance will be adjusted automatically.`
+            : ""
+        }
+        confirmText="Delete Entry"
+        cancelText="Cancel"
+        isDestructive={true}
+        icon="🗑️"
+        onConfirm={confirmDeleteEntry}
+        onClose={() => setEntryToDelete(null)}
+      />
     </div>
   );
 }

@@ -57,6 +57,20 @@ export default {
           rose: '#f43f5e',
         },
       },
+      keyframes: {
+        slideUp: {
+          '0%': { transform: 'translateY(100%)' },
+          '100%': { transform: 'translateY(0)' },
+        },
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+      },
+      animation: {
+        'slide-up': 'slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'fade-in': 'fadeIn 0.2s ease-out forwards',
+      },
     },
   },
   plugins: [
