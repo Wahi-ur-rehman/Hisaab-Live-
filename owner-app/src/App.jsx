@@ -258,10 +258,12 @@ export default function App() {
     return onAuthStateChanged(auth, async (u) => {
       if (!isDemo) {
         if (!u) {
-          setShopId("");
+          const saved = localStorage.getItem("active_shop_id");
+          if (!saved) setShopId("");
         } else {
           const r = await u.getIdTokenResult();
-          setShopId(r.claims.shopId || "");
+          const sid = r.claims.shopId || localStorage.getItem("active_shop_id") || "";
+          setShopId(sid);
         }
       }
       setAuthReady(true);
@@ -336,6 +338,7 @@ export default function App() {
         if (snap.exists()) {
           const shopData = snap.data();
           if (String(shopData.pin_code) === String(pin)) {
+            localStorage.setItem("active_shop_id", snap.id);
             setShopId(snap.id);
             setShop({ id: snap.id, ...shopData });
             setPin("");
@@ -346,11 +349,17 @@ export default function App() {
             setBusy(false);
             return;
           }
+        } else {
+          setErr(`Shop '${code.trim().toUpperCase()}' does not exist. Please register it in Super Admin first.`);
+          setBusy(false);
+          return;
         }
       } catch (errDb) {
         console.warn("Direct db check:", errDb);
+        setErr("Database error: " + (errDb.message || "Failed to connect to Firestore."));
+        setBusy(false);
+        return;
       }
-      setErr("Shop not found or invalid PIN. Please verify credentials.");
     } finally {
       setBusy(false);
     }
@@ -366,6 +375,7 @@ export default function App() {
   };
 
   const logout = () => {
+    localStorage.removeItem("active_shop_id");
     if (isDemo) {
       setIsDemo(false);
       setShopId("");
@@ -373,6 +383,8 @@ export default function App() {
       setLoginStep(1);
       return;
     }
+    setShopId("");
+    setShop(null);
     setView("hisaab");
     setLoginStep(1);
     return signOut(auth);
