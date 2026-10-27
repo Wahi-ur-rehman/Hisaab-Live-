@@ -1,0 +1,134 @@
+/**
+ * HisaabLive Soft-Modern Minimalist Deep Slate Theme for Ionic React
+ */
+
+:root {
+  /* Primary - Sky Cyan */
+  --ion-color-primary: #38bdf8;
+  --ion-color-primary-rgb: 56, 189, 248;
+  --ion-color-primary-contrast: #090d16;
+  --ion-color-primary-contrast-rgb: 9, 13, 22;
+  --ion-color-primary-shade: #31a6da;
+  --ion-color-primary-tint: #4cc4f9;
+
+  /* Secondary - Sky Blue Shade */
+  --ion-color-secondary: #0ea5e9;
+  --ion-color-secondary-rgb: 14, 165, 233;
+  --ion-color-secondary-contrast: #ffffff;
+  --ion-color-secondary-contrast-rgb: 255, 255, 255;
+  --ion-color-secondary-shade: #0c91ce;
+  --ion-color-secondary-tint: #26aeeB;
+
+  /* Tertiary - Indigo Accent */
+  --ion-color-tertiary: #6366f1;
+  --ion-color-tertiary-rgb: 99, 102, 241;
+  --ion-color-tertiary-contrast: #ffffff;
+  --ion-color-tertiary-contrast-rgb: 255, 255, 255;
+  --ion-color-tertiary-shade: #575ad4;
+  --ion-color-tertiary-tint: #7375f2;
+
+  /* Success - Emerald Mint (Sales & Payments) */
+  --ion-color-success: #10b981;
+  --ion-color-success-rgb: 16, 185, 129;
+  --ion-color-success-contrast: #ffffff;
+  --ion-color-success-contrast-rgb: 255, 255, 255;
+  --ion-color-success-shade: #0ea372;
+  --ion-color-success-tint: #28c08e;
+
+  /* Warning - Warm Amber (Khata Receivables) */
+  --ion-color-warning: #f59e0b;
+  --ion-color-warning-rgb: 245, 158, 11;
+  --ion-color-warning-contrast: #000000;
+  --ion-color-warning-contrast-rgb: 0, 0, 0;
+  --ion-color-warning-shade: #d88b0a;
+  --ion-color-warning-tint: #f6a823;
+
+  /* Danger - Rose Crimson (Expenses & Alerts) */
+  --ion-color-danger: #f43f5e;
+  --ion-color-danger-rgb: 244, 63, 94;
+  --ion-color-danger-contrast: #ffffff;
+  --ion-color-danger-contrast-rgb: 255, 255, 255;
+  --ion-color-danger-shade: #d73753;
+  --ion-color-danger-tint: #f5526e;
+
+  /* Dark */
+  --ion-color-dark: #090d16;
+  --ion-color-dark-rgb: 9, 13, 22;
+  --ion-color-dark-contrast: #ffffff;
+  --ion-color-dark-contrast-rgb: 255, 255, 255;
+  --ion-color-dark-shade: #080b13;
+  --ion-color-dark-tint: #22252d;
+
+  /* Medium / Muted Slate */
+  --ion-color-medium: #94a3b8;
+  --ion-color-medium-rgb: 148, 163, 184;
+  --ion-color-medium-contrast: #000000;
+  --ion-color-medium-contrast-rgb: 0, 0, 0;
+  --ion-color-medium-shade: #8290a2;
+  --ion-color-medium-tint: #9facbf;
+
+  /* Light */
+  --ion-color-light: #f1f5f9;
+  --ion-color-light-rgb: 241, 245, 249;
+  --ion-color-light-contrast: #000000;
+  --ion-color-light-contrast-rgb: 0, 0, 0;
+  --ion-color-light-shade: #d4d8db;
+  --ion-color-light-tint: #f2f6fa;
+
+  /* Light Theme Surface Variables */
+  --ion-background-color: #f1f5f9;
+  --ion-background-color-rgb: 241, 245, 249;
+  --ion-text-color: #0f172a;
+  --ion-text-color-rgb: 15, 23, 42;
+  --ion-card-background: #ffffff;
+  --ion-item-background: #ffffff;
+  --ion-toolbar-background: #ffffff;
+  --ion-tab-bar-background: #ffffff;
+  --ion-border-color: #e2e8f0;
+
+  /* Safe Area Variables */
+  --ion-safe-area-top: env(safe-area-inset-top, 0px);
+  --ion-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --ion-safe-area-left: env(safe-area-inset-left, 0px);
+  --ion-safe-area-right: env(safe-area-inset-right, 0px);
+}
+
+/* Deep Slate Dark Theme Palette */
+.dark,
+.ion-palette-dark,
+body.dark {
+  --ion-background-color: #090d16;
+  --ion-background-color-rgb: 9, 13, 22;
+
+  --ion-text-color: #f1f5f9;
+  --ion-text-color-rgb: 241, 245, 249;
+
+  --ion-card-background: #1a243b;
+  --ion-item-background: #1a243b;
+  --ion-toolbar-background: #1a243b;
+  --ion-tab-bar-background: #1a243b;
+  --ion-border-color: #223354;
+
+  --ion-color-step-50: #121929;
+  --ion-color-step-100: #1a243b;
+  --ion-color-step-150: #223354;
+  --ion-color-step-200: #2a3d64;
+  --ion-color-step-250: #334873;
+  --ion-color-step-300: #3b5382;
+  --ion-color-step-350: #445e92;
+  --ion-color-step-400: #4c69a1;
+  --ion-color-step-450: #5574b0;
+  --ion-color-step-500: #5d7fc0;
+  --ion-color-step-550: #6d8cc6;
+  --ion-color-step-600: #7e99cc;
+  --ion-color-step-650: #8ea7d3;
+  --ion-color-step-700: #9eb4d9;
+  --ion-color-step-750: #afc2e0;
+  --ion-color-step-800: #bfcfe6;
+  --ion-color-step-850: #d0ddec;
+  --ion-color-step-900: #e0eaf3;
+  --ion-color-step-950: #f0f7f9;
+
+  --ion-item-color: #f1f5f9;
+  --ion-placeholder-color: #94a3b8;
+}

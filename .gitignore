@@ -7,3 +7,4 @@ agent.log
 agent.lock
 *serviceAccount*.json
 *.exe
+.agents/

@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Safe area padding utilities & CSS variable fallbacks for mobile notch & gestures */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+
+  /* Deep Slate light tokens */
+  --color-slate-base: #f1f5f9;
+  --color-slate-card: #ffffff;
+  --color-slate-border: #e2e8f0;
+  --color-slate-muted: #94a3b8;
+  --color-emerald-mint: #10b981;
+  --color-amber-warm: #f59e0b;
+  --color-rose-crimson: #f43f5e;
+  --color-sky-cyan: #38bdf8;
+}
+
+.dark,
+.ion-palette-dark,
+body.dark {
+  /* Deep Slate dark tokens */
+  --color-slate-base: #090d16;
+  --color-slate-card: #1a243b;
+  --color-slate-border: #223354;
+  --color-slate-muted: #94a3b8;
+  --color-emerald-mint: #10b981;
+  --color-amber-warm: #f59e0b;
+  --color-rose-crimson: #f43f5e;
+  --color-sky-cyan: #38bdf8;
+}
+
+/* Global Font Stack and Base Styles */
+html {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Noto Nastaliq Urdu", "Urdu Typesetting";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #090d16;
+  color: #f1f5f9;
+  color-scheme: dark;
+}
+
+html:not(.dark) {
+  background-color: #f1f5f9;
+  color: #0f172a;
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: inherit;
+  color: inherit;
+  overflow-x: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* RTL / Urdu typography adjustments */
+[dir="rtl"] {
+  font-family: "Noto Nastaliq Urdu", "Urdu Typesetting", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  letter-spacing: normal;
+}

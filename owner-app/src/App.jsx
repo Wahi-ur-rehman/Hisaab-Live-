@@ -7,6 +7,9 @@ import { getMessaging, getToken, isSupported } from "firebase/messaging";
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 import lang from "./language.json";
 import { jsPDF } from "jspdf";
+import { LanguageProvider, useLanguage } from "./context/LanguageContext";
+import Header from "./components/common/Header";
+import TabBar from "./components/common/TabBar";
 
 const app = initializeApp({
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCcbUDXSqjFOwXHC1_3j3PfuxG6i2msT3E",
@@ -178,13 +181,15 @@ const DEMO_ALERTS_INITIAL = [
   },
 ];
 
-export default function App() {
+function AppContent() {
+  const { lang: currentLang, t, isRtl, toggleLanguage } = useLanguage();
   const [authReady, setAuthReady] = useState(false);
   const [shopId, setShopId] = useState("");
   const [shop, setShop] = useState(null);
   const [today, setToday] = useState(todayPK());
   const [view, setView] = useState("hisaab");
   const [alerts, setAlerts] = useState([]);
+  const [showAlertsModal, setShowAlertsModal] = useState(false);
 
   // Theme Mode (Default: dark for eye comfort)
   const [themeMode, setThemeMode] = useState(localStorage.getItem("hl_theme") || "dark");
@@ -215,8 +220,6 @@ export default function App() {
   // Monthly Hisaab & Kharcha Statement Modal State
   const [showMonthlyModal, setShowMonthlyModal] = useState(false);
   const [monthlyData, setMonthlyData] = useState({ mSale: 0, mExp: 0 });
-
-  const t = lang.en;
 
   const globalStyle = `
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -635,54 +638,20 @@ export default function App() {
           </div>
         )}
 
-        {/* Top Header Card */}
-        <div style={{
-          background: T.card, borderBottom: `1px solid ${T.border}`, padding: "14px 18px",
-          display: "flex", justifyContent: "space-between", alignItems: "center",
-          position: "sticky", top: isDemo ? 34 : 0, zIndex: 25, boxShadow: T.shadowSm,
-        }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 18, fontWeight: 900, color: T.text }}>{shop.shop_name}</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
-              <span style={{ background: T.cardSecondary, padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, color: T.textMuted }}>
-                {shop.shop_code}
-              </span>
-              <span style={{ fontSize: 11, color: "#10b981", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
-                POS Live
-              </span>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {/* Theme Toggle Button */}
-            <button
-              onClick={toggleTheme}
-              title="Toggle Dark / Light Theme"
-              style={{
-                background: T.cardSecondary, border: `1px solid ${T.border}`, borderRadius: T.radiusSm,
-                padding: "7px 10px", fontSize: 14, cursor: "pointer", color: T.text,
-              }}
-            >
-              {themeMode === "dark" ? "☀️" : "🌙"}
-            </button>
-
-            <button
-              onClick={logout}
-              style={{
-                background: T.primaryLight, border: `1px solid ${T.primary}`, borderRadius: T.radiusSm,
-                padding: "8px 12px", fontSize: 12, cursor: "pointer", color: T.primary, fontWeight: 700,
-              }}
-            >
-              Logout
-            </button>
-          </div>
-        </div>
+        {/* Notch-Safe Header */}
+        <Header
+          shop={shop}
+          unseenAlerts={unseen}
+          onOpenAlerts={() => setShowAlertsModal(true)}
+          themeMode={themeMode}
+          onToggleTheme={toggleTheme}
+          isDemo={isDemo}
+          onExitDemo={logout}
+          onLogout={logout}
+        />
 
         {/* Main Content Area */}
-        <div style={{ padding: "16px", paddingBottom: 100 }}>
+        <div style={{ padding: "16px", paddingBottom: 110 }}>
           {view === "hisaab" && (
             <Hisaab
               shop={shop}
@@ -693,12 +662,24 @@ export default function App() {
               isDemo={isDemo}
               demoExpenses={demoExpenses}
               setDemoExpenses={setDemoExpenses}
-              onAlerts={() => setView("alerts")}
+              onAlerts={() => setShowAlertsModal(true)}
               onOpenExpenseDetails={() => setShowExpenseModal(true)}
               onOpenMonthlyStatement={(sale, exp) => {
                 setMonthlyData({ mSale: sale, mExp: exp });
                 setShowMonthlyModal(true);
               }}
+            />
+          )}
+
+          {view === "expenses" && (
+            <ExpensesTabContent
+              today={today}
+              shopId={shopId}
+              T={T}
+              t={t}
+              isDemo={isDemo}
+              demoExpenses={demoExpenses}
+              setDemoExpenses={setDemoExpenses}
             />
           )}
 
@@ -715,6 +696,18 @@ export default function App() {
             />
           )}
 
+          {view === "reports" && (
+            <ReportsTabContent
+              shop={shop}
+              shopId={shopId}
+              today={today}
+              T={T}
+              t={t}
+              isDemo={isDemo}
+              demoExpenses={demoExpenses}
+            />
+          )}
+
           {view === "alerts" && (
             <Alerts
               alerts={liveAlerts}
@@ -728,42 +721,92 @@ export default function App() {
           <Notify shop={shop} t={t} T={T} isDemo={isDemo} />
         </div>
 
-        {/* Bottom Tab Navigation Bar */}
-        <div style={{
-          position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)",
-          width: "100%", maxWidth: 460, background: T.card, borderTop: `1px solid ${T.border}`,
-          display: "flex", zIndex: 30, boxShadow: T.shadowMd,
-        }}>
-          {[
-            { id: "hisaab", label: t.tab_hisaab, icon: "📊" },
-            { id: "khata", label: t.tab_khata, icon: "📒" },
-            { id: "alerts", label: t.tab_alerts, icon: "🔔", badge: unseen },
-          ].map(({ id, label, icon, badge }) => (
-            <button
-              key={id}
-              onClick={() => setView(id)}
+        {/* Fixed 4-Tab Bottom Navigation Bar */}
+        <TabBar
+          activeTab={view}
+          onTabChange={(newTab) => setView(newTab)}
+          unseenAlerts={unseen}
+        />
+
+        {/* Security Alerts Modal */}
+        {showAlertsModal && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.75)",
+              zIndex: 99,
+              display: "flex",
+              alignItems: "flex-end",
+              justifyContent: "center",
+              backdropFilter: "blur(5px)",
+            }}
+            onClick={() => setShowAlertsModal(false)}
+          >
+            <div
               style={{
-                flex: 1, padding: "11px 8px 14px", border: "none", background: "none", cursor: "pointer",
-                borderTop: view === id ? `3px solid ${T.primary}` : "3px solid transparent",
-                color: view === id ? T.primary : T.textMuted, fontSize: 12, fontWeight: view === id ? 800 : 500,
-                position: "relative",
+                background: T.card,
+                width: "100%",
+                maxWidth: 460,
+                maxHeight: "88vh",
+                borderTopLeftRadius: T.radiusXl,
+                borderTopRightRadius: T.radiusXl,
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+                boxShadow: T.shadowLg,
+                animation: "slideUp 0.25s ease-out",
+                border: `1px solid ${T.border}`,
               }}
+              onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ fontSize: 21, marginBottom: 2 }}>{icon}</div>
-              <div>{label}</div>
-              {badge > 0 && (
-                <span style={{
-                  position: "absolute", top: 8, right: "calc(50% - 18px)",
-                  background: T.primary, color: "white", borderRadius: 10,
-                  padding: "1px 6px", fontSize: 10, fontWeight: 800,
-                  boxShadow: "0 2px 6px rgba(244,63,94,0.4)",
-                }}>
-                  {badge}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+              <div
+                style={{
+                  padding: "16px 20px",
+                  borderBottom: `1px solid ${T.border}`,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 20 }}>🔔</span>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: T.text }}>
+                    {t.alerts_title || "POS Activity & Security Alerts"}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowAlertsModal(false)}
+                  style={{
+                    background: T.cardSecondary,
+                    border: `1px solid ${T.border}`,
+                    color: T.textMuted,
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    fontSize: 16,
+                    fontWeight: 700,
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+              <div style={{ overflowY: "auto", padding: "16px" }}>
+                <Alerts
+                  alerts={liveAlerts}
+                  t={t}
+                  T={T}
+                  isDemo={isDemo}
+                  setDemoAlerts={setDemoAlerts}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Detailed Expense Modal Sheet */}
         {showExpenseModal && (
@@ -797,6 +840,438 @@ export default function App() {
 
       </div>
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Dedicated Expenses Tab Content View
+// ---------------------------------------------------------------------------
+function ExpensesTabContent({
+  today,
+  shopId,
+  T,
+  t,
+  isDemo,
+  demoExpenses,
+  setDemoExpenses,
+}) {
+  const [liveExpenses, setLiveExpenses] = useState(isDemo ? demoExpenses : []);
+  const [selectedCat, setSelectedCat] = useState("All");
+  const [deletingId, setDeletingId] = useState("");
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  useEffect(() => {
+    if (isDemo) {
+      setLiveExpenses(demoExpenses);
+      return;
+    }
+    if (!shopId) return;
+    const q = query(
+      collection(db, "shops", shopId, "expenses"),
+      where("date", "==", today)
+    );
+    return onSnapshot(
+      q,
+      (s) => setLiveExpenses(s.docs.map((x) => ({ id: x.id, ...x.data() }))),
+      (e) => console.error("Expenses fetch error:", e)
+    );
+  }, [shopId, today, isDemo, demoExpenses]);
+
+  const handleDelete = async (e, item) => {
+    e.stopPropagation();
+    if (!window.confirm(`Delete expense "${item.title}" (Rs. ${Number(item.amount).toLocaleString()})?`)) return;
+    setDeletingId(item.id);
+    try {
+      if (isDemo) {
+        setDemoExpenses((prev) => prev.filter((x) => x.id !== item.id));
+      } else {
+        await call("deleteExpense", { expenseId: item.id });
+      }
+    } catch (err) {
+      alert("Failed to delete expense: " + (err.message || err));
+    } finally {
+      setDeletingId("");
+    }
+  };
+
+  const total = liveExpenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  const filteredItems = selectedCat === "All"
+    ? liveExpenses
+    : liveExpenses.filter((e) => e.category === selectedCat);
+
+  return (
+    <div>
+      {/* Header Summary Card */}
+      <div
+        style={{
+          background: T.card,
+          borderRadius: T.radius,
+          padding: "18px",
+          border: `1.5px solid ${T.border}`,
+          boxShadow: T.shadowSm,
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div>
+            <span style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, textTransform: "uppercase" }}>
+              {t.total_expense || "Today's Expenses"}
+            </span>
+            <div style={{ fontSize: 24, fontWeight: 900, color: "#f43f5e", marginTop: 2 }}>
+              Rs. {Number(total).toLocaleString()}
+            </div>
+          </div>
+          <button
+            onClick={() => setShowAddForm((prev) => !prev)}
+            style={{
+              background: showAddForm ? T.cardSecondary : T.primaryGradient,
+              color: showAddForm ? T.text : "white",
+              border: showAddForm ? `1px solid ${T.border}` : "none",
+              padding: "9px 16px",
+              borderRadius: T.radiusSm,
+              fontSize: 13,
+              fontWeight: 800,
+              cursor: "pointer",
+              boxShadow: showAddForm ? "none" : "0 4px 12px rgba(244,63,94,0.3)",
+            }}
+          >
+            {showAddForm ? (t.close || "Close Form") : (t.add_expense || "+ Add Expense")}
+          </button>
+        </div>
+
+        {/* Category Pills Filter */}
+        <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
+          {["All", ...CATS.map((c) => c.name)].map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCat(cat)}
+              style={{
+                background: selectedCat === cat ? T.primary : T.cardSecondary,
+                color: selectedCat === cat ? "white" : T.textMuted,
+                border: `1px solid ${selectedCat === cat ? T.primary : T.border}`,
+                padding: "4px 10px",
+                borderRadius: 16,
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {cat === "All" ? (t.all_categories || "All") : cat}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Add Expense Form */}
+      {showAddForm && (
+        <div style={{ marginBottom: 16 }}>
+          <ExpenseForm
+            shopId={shopId}
+            T={T}
+            isDemo={isDemo}
+            onAddDemoExpense={(newExp) => {
+              setDemoExpenses((prev) => [newExp, ...prev]);
+              setShowAddForm(false);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Expenses List */}
+      <div
+        style={{
+          background: T.card,
+          borderRadius: T.radius,
+          padding: "16px",
+          border: `1.5px solid ${T.border}`,
+          boxShadow: T.shadowSm,
+        }}
+      >
+        <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 12 }}>
+          {selectedCat === "All" ? (t.today_expenses || "Today's Expenses") : `${selectedCat}`} ({filteredItems.length})
+        </div>
+
+        {filteredItems.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "32px 16px", color: T.textMuted, fontSize: 13 }}>
+            {t.no_entries || "No expenses recorded today."}
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {filteredItems.map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  background: T.cardSecondary,
+                  padding: "10px 14px",
+                  borderRadius: T.radiusSm,
+                  border: `1px solid ${T.border}`,
+                }}
+              >
+                <div style={{ minWidth: 0, flex: 1, marginRight: 8 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: T.text }}>
+                    {item.title}
+                  </div>
+                  <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2, display: "flex", gap: 8 }}>
+                    <span>{item.category || "Other"}</span>
+                    {item.time && <span>• {item.time}</span>}
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: "#f43f5e" }}>
+                    Rs. {Number(item.amount || 0).toLocaleString()}
+                  </span>
+                  <button
+                    onClick={(e) => handleDelete(e, item)}
+                    disabled={deletingId === item.id}
+                    title="Delete Expense"
+                    style={{
+                      background: "rgba(244,63,94,0.1)",
+                      border: "1px solid rgba(244,63,94,0.3)",
+                      color: "#f43f5e",
+                      borderRadius: 6,
+                      padding: "4px 8px",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {deletingId === item.id ? "..." : "🗑️"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Dedicated Monthly Reports & Statement Tab Content View
+// ---------------------------------------------------------------------------
+function ReportsTabContent({
+  shop,
+  shopId,
+  today,
+  T,
+  t,
+  isDemo,
+  demoExpenses,
+}) {
+  const ym = today.slice(0, 7);
+  const [items, setItems] = useState([]);
+  const [monthSummary, setMonthSummary] = useState(null);
+  const [downloading, setDownloading] = useState(false);
+
+  useEffect(() => {
+    if (isDemo) {
+      const merged = [...DEMO_MONTH_EXPENSES];
+      demoExpenses.forEach((de) => {
+        if (!merged.some((m) => m.id === de.id)) {
+          merged.unshift(de);
+        }
+      });
+      setItems(merged);
+      return;
+    }
+    if (!shopId) return;
+
+    const q = query(
+      collection(db, "shops", shopId, "expenses"),
+      where("date", ">=", `${ym}-01`),
+      where("date", "<=", `${ym}-31`),
+      orderBy("date", "desc")
+    );
+    const unsubExp = onSnapshot(
+      q,
+      (s) => setItems(s.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      (e) => console.error("Monthly expenses fetch error:", e)
+    );
+
+    const unsubMonth = onSnapshot(
+      doc(db, "shops", shopId, "monthly_summary", ym),
+      (d) => setMonthSummary(d.exists() ? d.data() : {}),
+      (e) => console.error("Monthly summary fetch error:", e)
+    );
+
+    return () => {
+      unsubExp();
+      unsubMonth();
+    };
+  }, [shopId, ym, isDemo, demoExpenses]);
+
+  const totalExpense = items.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const totalSale = isDemo ? 540000 : ((monthSummary && monthSummary.sale) || 0);
+  const netProfit = totalSale - totalExpense;
+  const margin = totalSale > 0 ? ((netProfit / totalSale) * 100).toFixed(1) : "0.0";
+
+  // Category breakdown
+  const catBreakdown = CATS.map((cat) => {
+    const catItems = items.filter((it) => it.category === cat.name);
+    const total = catItems.reduce((sum, it) => sum + Number(it.amount || 0), 0);
+    return { ...cat, total, count: catItems.length };
+  });
+
+  const handleDownloadPdf = () => {
+    setDownloading(true);
+    try {
+      generateMonthlyPdf({
+        shopName: shop ? shop.shop_name : "Al-Madina General Store",
+        shopCode: shop ? shop.shop_code : "G10",
+        month: ym,
+        sale: totalSale,
+        expense: totalExpense,
+        profit: netProfit,
+        margin,
+        catBreakdown,
+        items,
+      });
+    } catch (e) {
+      console.error("PDF generation failed:", e);
+      alert("Failed to generate PDF: " + (e.message || e));
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <div>
+      {/* Month Header & Download Action */}
+      <div
+        style={{
+          background: T.card,
+          borderRadius: T.radius,
+          padding: "18px",
+          border: `1.5px solid ${T.border}`,
+          boxShadow: T.shadowSm,
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: T.text }}>
+              {t.month_title || "This Month Summary"}
+            </h3>
+            <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600 }}>{ym}</span>
+          </div>
+          <button
+            onClick={handleDownloadPdf}
+            disabled={downloading}
+            style={{
+              background: T.primaryGradient,
+              color: "white",
+              border: "none",
+              padding: "10px 16px",
+              borderRadius: T.radiusSm,
+              fontSize: 12,
+              fontWeight: 800,
+              cursor: "pointer",
+              boxShadow: "0 4px 12px rgba(244,63,94,0.3)",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <span>📄</span>
+            <span>{downloading ? "Preparing..." : (t.download_pdf || "Download PDF")}</span>
+          </button>
+        </div>
+
+        {/* Metrics Grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+          <div style={{ background: T.cardSecondary, padding: "12px", borderRadius: T.radiusSm, border: `1px solid ${T.border}` }}>
+            <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>
+              {t.month_sale || "Monthly Sales"}
+            </span>
+            <div style={{ fontSize: 18, fontWeight: 900, color: "#10b981", marginTop: 4 }}>
+              Rs. {Number(totalSale).toLocaleString()}
+            </div>
+          </div>
+          <div style={{ background: T.cardSecondary, padding: "12px", borderRadius: T.radiusSm, border: `1px solid ${T.border}` }}>
+            <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>
+              {t.month_expense || "Monthly Expenses"}
+            </span>
+            <div style={{ fontSize: 18, fontWeight: 900, color: "#f43f5e", marginTop: 4 }}>
+              Rs. {Number(totalExpense).toLocaleString()}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ background: T.heroGradient, padding: "14px 16px", borderRadius: T.radiusSm, color: "white" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <span style={{ fontSize: 11, opacity: 0.8, fontWeight: 700, textTransform: "uppercase" }}>
+                {t.month_profit || "Net Profit"}
+              </span>
+              <div style={{ fontSize: 22, fontWeight: 900, color: "#38bdf8", marginTop: 2 }}>
+                Rs. {Number(netProfit).toLocaleString()}
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <span style={{ fontSize: 11, opacity: 0.8, fontWeight: 700 }}>Margin</span>
+              <div style={{ fontSize: 18, fontWeight: 900, color: "#10b981" }}>{margin}%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Category Breakdown */}
+      <div
+        style={{
+          background: T.card,
+          borderRadius: T.radius,
+          padding: "16px",
+          border: `1.5px solid ${T.border}`,
+          boxShadow: T.shadowSm,
+        }}
+      >
+        <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 12 }}>
+          Category Expenses Breakdown
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {catBreakdown.map((cat) => (
+            <div
+              key={cat.name}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "8px 12px",
+                borderRadius: T.radiusSm,
+                background: T.cardSecondary,
+                border: `1px solid ${T.border}`,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 18 }}>{cat.icon}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{cat.name}</span>
+                <span style={{ fontSize: 11, color: T.textMuted }}>({cat.count})</span>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 800, color: cat.total > 0 ? T.text : T.textMuted }}>
+                Rs. {Number(cat.total).toLocaleString()}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Root App Export wrapped in LanguageProvider
+// ---------------------------------------------------------------------------
+export default function App() {
+  return (
+    <LanguageProvider>
+      <AppContent />
+    </LanguageProvider>
   );
 }
 
