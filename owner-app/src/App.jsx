@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signInWithCustomToken, signInAnonymously, signOut } from "firebase/auth";
-import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, orderBy, limit } from "firebase/firestore";
+import { getFirestore, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, orderBy, limit } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { getMessaging, getToken, isSupported } from "firebase/messaging";
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
@@ -334,13 +334,32 @@ export default function App() {
             console.warn("Anonymous sign-in check:", eAnon);
           }
         }
-        const snap = await getDoc(doc(db, "shops", targetId));
-        if (snap.exists()) {
-          const shopData = snap.data();
+        
+        let snap = await getDoc(doc(db, "shops", targetId));
+        let shopData = snap.exists() ? snap.data() : null;
+        let shopIdFound = snap.exists() ? snap.id : null;
+
+        // If not found by shop code ID, try matching phone number or uppercase code
+        if (!shopData) {
+          try {
+            const rawPhone = code.trim();
+            const dashPhone = rawPhone.length === 11 && !rawPhone.includes("-") ? rawPhone.slice(0, 4) + "-" + rawPhone.slice(4) : rawPhone;
+            const qPhone = query(collection(db, "shops"), where("owner_phone", "in", [rawPhone, dashPhone]));
+            const qSnap = await getDocs(qPhone);
+            if (!qSnap.empty) {
+              shopData = qSnap.docs[0].data();
+              shopIdFound = qSnap.docs[0].id;
+            }
+          } catch (eQ) {
+            console.warn("Phone query fallback:", eQ);
+          }
+        }
+
+        if (shopData && shopIdFound) {
           if (String(shopData.pin_code) === String(pin)) {
-            localStorage.setItem("active_shop_id", snap.id);
-            setShopId(snap.id);
-            setShop({ id: snap.id, ...shopData });
+            localStorage.setItem("active_shop_id", shopIdFound);
+            setShopId(shopIdFound);
+            setShop({ id: shopIdFound, ...shopData });
             setPin("");
             setBusy(false);
             return;
