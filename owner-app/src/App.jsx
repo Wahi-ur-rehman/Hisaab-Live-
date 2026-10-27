@@ -325,11 +325,17 @@ export default function App() {
       console.warn("Function login not active, attempting direct Firestore verification...");
       try {
         const targetId = code.trim().toLowerCase();
+        if (!auth.currentUser) {
+          try {
+            await signInAnonymously(auth);
+          } catch (eAnon) {
+            console.warn("Anonymous sign-in check:", eAnon);
+          }
+        }
         const snap = await getDoc(doc(db, "shops", targetId));
         if (snap.exists()) {
           const shopData = snap.data();
           if (String(shopData.pin_code) === String(pin)) {
-            await signInAnonymously(auth);
             setShopId(snap.id);
             setShop({ id: snap.id, ...shopData });
             setPin("");

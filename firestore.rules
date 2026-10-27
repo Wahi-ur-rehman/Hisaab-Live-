@@ -35,8 +35,8 @@ service cloud.firestore {
 
     // Shops Root Document
     match /shops/{shopId} {
-      // Super Admin has full read/write; Owners can read their shop
-      allow read: if isAdmin() || isOwner(shopId);
+      // Any client can read the shop profile to verify code/status; only Super Admin can create/edit/delete
+      allow read: if true;
       allow write: if isAdmin();
 
       // Subcollections: Super Admin and active Shop Owners can read and write
