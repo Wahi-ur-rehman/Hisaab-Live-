@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, addDoc } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
@@ -225,6 +225,115 @@ function Dashboard({ S, themeMode, onToggleTheme }) {
   const [pinModal, setPinModal] = useState(null);         // { shop }
   const [pinInput, setPinInput] = useState("");
 
+  // Notification Modal states
+  const [notifyModal, setNotifyModal] = useState(false);
+  const [notifyTarget, setNotifyTarget] = useState("all"); // "all" | "single"
+  const [notifySelectedShop, setNotifySelectedShop] = useState("");
+  const [notifyTitle, setNotifyTitle] = useState("");
+  const [notifyMessage, setNotifyMessage] = useState("");
+  const [notifySeverity, setNotifySeverity] = useState("info"); // "info" | "medium" | "high"
+
+  const NOTIFY_TEMPLATES = [
+    {
+      label: "🔔 Expiry Reminder",
+      title: "Subscription Renewal Notice",
+      message: "Assalam-o-Alaikum, your monthly HisaabLive subscription is expiring soon. Please renew to keep your POS and phone sync active uninterrupted.",
+      severity: "medium",
+    },
+    {
+      label: "🛠️ Maintenance",
+      title: "Scheduled System Maintenance",
+      message: "HisaabLive servers will undergo brief scheduled maintenance tonight at 2:00 AM PKT. Data syncing will resume automatically within 15 minutes.",
+      severity: "info",
+    },
+    {
+      label: "🚀 New Feature",
+      title: "New Update Available!",
+      message: "A fresh update is now available for HisaabLive with improved performance, dark/light theme toggle, and faster reports!",
+      severity: "info",
+    },
+    {
+      label: "🚨 Urgent Alert",
+      title: "Urgent Security Verification",
+      message: "Please review your daily sales and POS register. If you notice any unexpected changes, please contact support immediately.",
+      severity: "high",
+    },
+  ];
+
+  const openNotifyModal = (targetShop = null) => {
+    if (targetShop) {
+      setNotifyTarget("single");
+      setNotifySelectedShop(targetShop.id);
+    } else {
+      setNotifyTarget("all");
+      setNotifySelectedShop(shops[0]?.id || "");
+    }
+    setNotifyTitle("");
+    setNotifyMessage("");
+    setNotifySeverity("info");
+    setNotifyModal(true);
+  };
+
+  const applyTemplate = (tmpl) => {
+    setNotifyTitle(tmpl.title);
+    setNotifyMessage(tmpl.message);
+    setNotifySeverity(tmpl.severity);
+  };
+
+  const handleSendNotification = (e) => {
+    e.preventDefault();
+    if (!notifyTitle.trim() || !notifyMessage.trim()) {
+      showToast("Please enter both title and message.", false);
+      return;
+    }
+    run(async () => {
+      const now = new Date();
+      const payload = {
+        title: notifyTitle.trim(),
+        message_en: notifyMessage.trim(),
+        message_roman: notifyMessage.trim(),
+        severity: notifySeverity,
+        type: "admin_notification",
+        created_at: now.toISOString(),
+        day: now.toISOString().slice(0, 10),
+        seen: false,
+        sender: auth.currentUser?.email || "admin@hisaablive.com",
+      };
+
+      if (notifyTarget === "all") {
+        if (shops.length === 0) throw new Error("No registered shops found.");
+        const promises = shops.map((s) =>
+          addDoc(collection(db, "shops", s.id, "alerts"), payload)
+        );
+        promises.push(
+          addDoc(collection(db, "admin_notifications"), {
+            ...payload,
+            target: "all",
+            recipient_count: shops.length,
+          })
+        );
+        await Promise.all(promises);
+        showToast(`✓ Broadcast notification sent to all ${shops.length} shops!`);
+      } else {
+        if (!notifySelectedShop) throw new Error("Please select a target shop.");
+        const targetShopObj = shops.find((s) => s.id === notifySelectedShop);
+        await Promise.all([
+          addDoc(collection(db, "shops", notifySelectedShop, "alerts"), payload),
+          addDoc(collection(db, "admin_notifications"), {
+            ...payload,
+            target: notifySelectedShop,
+            shop_name: targetShopObj?.shop_name || notifySelectedShop,
+          })
+        ]);
+        showToast(`✓ Notification sent to ${targetShopObj?.shop_name || notifySelectedShop}!`);
+      }
+
+      setNotifyModal(false);
+      setNotifyTitle("");
+      setNotifyMessage("");
+    });
+  };
+
   // New shop form
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
@@ -431,9 +540,14 @@ function Dashboard({ S, themeMode, onToggleTheme }) {
               </button>
             ))}
           </div>
-          <button onClick={() => setAddModal(true)} style={btn({ background: S.brandGrad, color: "white", padding: "9px 18px", fontSize: 14, boxShadow: "0 4px 14px rgba(56,189,248,0.25)" })}>
-            ＋ Register Shop
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => openNotifyModal(null)} style={btn({ background: S.purpleBg, color: S.purple, border: `1px solid ${S.purple}`, padding: "9px 18px", fontSize: 14, boxShadow: "0 4px 14px rgba(139,92,246,0.18)" })}>
+              📢 Send Notification
+            </button>
+            <button onClick={() => setAddModal(true)} style={btn({ background: S.brandGrad, color: "white", padding: "9px 18px", fontSize: 14, boxShadow: "0 4px 14px rgba(56,189,248,0.25)" })}>
+              ＋ Register Shop
+            </button>
+          </div>
         </div>
 
         {/* ── Shops Table ── */}
@@ -509,6 +623,7 @@ function Dashboard({ S, themeMode, onToggleTheme }) {
                       {/* Actions */}
                       <td style={{ padding: "14px 16px", textAlign: "right" }}>
                         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                          <ActionBtn label="📢 Notify" color={S.purple} S={S} busy={busy} onClick={() => openNotifyModal(s)} />
                           <ActionBtn label="🔑 Setup Code" color={S.brand} S={S} busy={busy} onClick={() => generateSetupCode(s)} />
                           <ActionBtn label="＋1 Month" color={S.success} S={S} busy={busy} onClick={() => markPaid(s)} />
                           <ActionBtn label="🔢 Reset PIN" color={S.textSec} S={S} busy={busy} onClick={() => openResetPin(s)} />
@@ -609,6 +724,196 @@ function Dashboard({ S, themeMode, onToggleTheme }) {
               Cancel
             </button>
           </div>
+        </Modal>
+      )}
+
+      {/* ── Send Notification Modal ── */}
+      {notifyModal && (
+        <Modal title="📢 Send Owner Notification" onClose={() => setNotifyModal(false)} S={S} width={520}>
+          <form onSubmit={handleSendNotification}>
+            {/* Target Selection */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: S.textSec, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Notification Target
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setNotifyTarget("all")}
+                  style={btn({
+                    flex: 1,
+                    padding: "10px",
+                    background: notifyTarget === "all" ? S.purpleBg : S.cardSecondary,
+                    color: notifyTarget === "all" ? S.purple : S.textSec,
+                    border: `1.5px solid ${notifyTarget === "all" ? S.purple : S.border}`,
+                    borderRadius: S.radiusSm,
+                  })}
+                >
+                  📢 All Shops ({shops.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNotifyTarget("single")}
+                  style={btn({
+                    flex: 1,
+                    padding: "10px",
+                    background: notifyTarget === "single" ? S.purpleBg : S.cardSecondary,
+                    color: notifyTarget === "single" ? S.purple : S.textSec,
+                    border: `1.5px solid ${notifyTarget === "single" ? S.purple : S.border}`,
+                    borderRadius: S.radiusSm,
+                  })}
+                >
+                  🎯 Specific Shop
+                </button>
+              </div>
+            </div>
+
+            {/* Shop Selector (If single) */}
+            {notifyTarget === "single" && (
+              <Field label="Select Target Shop" S={S}>
+                <select
+                  style={{ ...input(S), cursor: "pointer" }}
+                  value={notifySelectedShop}
+                  onChange={(e) => setNotifySelectedShop(e.target.value)}
+                  required
+                >
+                  <option value="" disabled>-- Select a Shop --</option>
+                  {shops.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.shop_name} ({s.shop_code || s.id}) — {s.phone || "No Phone"}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+
+            {/* Quick Templates */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: S.textMuted, marginBottom: 6, textTransform: "uppercase" }}>
+                Quick Templates
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {NOTIFY_TEMPLATES.map((tmpl, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => applyTemplate(tmpl)}
+                    style={{
+                      background: S.cardSecondary,
+                      color: S.textSec,
+                      border: `1px solid ${S.border}`,
+                      borderRadius: 16,
+                      padding: "4px 10px",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    {tmpl.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Title */}
+            <Field label="Notification Title" S={S}>
+              <input
+                style={input(S)}
+                placeholder="e.g. Subscription Renewal / Maintenance Update"
+                value={notifyTitle}
+                onChange={(e) => setNotifyTitle(e.target.value)}
+                required
+              />
+            </Field>
+
+            {/* Priority / Severity */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: S.textSec, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Urgency Level
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {[
+                  { id: "info", label: "ℹ️ Normal Info", color: S.brand, bg: S.cardSecondary },
+                  { id: "medium", label: "⚠️ Important", color: S.warn, bg: S.warnBg },
+                  { id: "high", label: "🚨 Urgent", color: S.danger, bg: S.dangerBg },
+                ].map((sev) => (
+                  <button
+                    key={sev.id}
+                    type="button"
+                    onClick={() => setNotifySeverity(sev.id)}
+                    style={btn({
+                      flex: 1,
+                      padding: "8px",
+                      fontSize: 12,
+                      background: notifySeverity === sev.id ? sev.bg : S.cardSecondary,
+                      color: notifySeverity === sev.id ? sev.color : S.textSec,
+                      border: `1.5px solid ${notifySeverity === sev.id ? sev.color : S.border}`,
+                      borderRadius: S.radiusSm,
+                    })}
+                  >
+                    {sev.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Message Body */}
+            <Field label="Notification Message" S={S}>
+              <textarea
+                style={{
+                  ...input(S),
+                  minHeight: 90,
+                  maxHeight: 180,
+                  resize: "vertical",
+                  lineHeight: 1.5,
+                  fontSize: 13,
+                  fontFamily: "inherit",
+                }}
+                placeholder="Write your message here in English or Urdu/Roman Urdu..."
+                value={notifyMessage}
+                onChange={(e) => setNotifyMessage(e.target.value)}
+                required
+              />
+            </Field>
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+              <button
+                type="submit"
+                disabled={busy}
+                style={btn({
+                  flex: 1,
+                  padding: "12px",
+                  background: notifyTarget === "all" ? "linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)" : S.brandGrad,
+                  color: "white",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  boxShadow: "0 4px 14px rgba(139,92,246,0.3)",
+                  opacity: busy ? 0.7 : 1,
+                })}
+              >
+                {busy
+                  ? "Sending…"
+                  : notifyTarget === "all"
+                  ? `📢 Broadcast to All Shops (${shops.length})`
+                  : "📢 Send Notification"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setNotifyModal(false)}
+                style={btn({
+                  padding: "12px 18px",
+                  background: S.cardSecondary,
+                  color: S.textSec,
+                  border: `1px solid ${S.border}`,
+                  fontSize: 14,
+                })}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
         </Modal>
       )}
 

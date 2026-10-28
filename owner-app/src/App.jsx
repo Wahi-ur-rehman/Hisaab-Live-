@@ -68,6 +68,8 @@ const THEMES = {
     success: "#10b981",
     warn: "#f59e0b",
     danger: "#ef4444",
+    purple: "#a855f7",
+    purpleLight: "rgba(168,85,247,0.15)",
     radiusXl: 22,
     radius: 16,
     radiusSm: 10,
@@ -93,6 +95,8 @@ const THEMES = {
     success: "#059669",
     warn: "#d97706",
     danger: "#dc2626",
+    purple: "#7c3aed",
+    purpleLight: "#f5f3ff",
     radiusXl: 22,
     radius: 16,
     radiusSm: 10,
@@ -163,6 +167,16 @@ const DEMO_ENTRIES_INITIAL = {
 };
 
 const DEMO_ALERTS_INITIAL = [
+  {
+    id: "a0",
+    type: "admin_notification",
+    title: "📢 System Update & Support Announcement",
+    severity: "info",
+    day: todayPK(),
+    seen: false,
+    message_en: "Assalam-o-Alaikum! Real-time POS syncing, instant tamper security alerts, and new settings are now fully active.",
+    sender: "admin@hisaablive.com",
+  },
   {
     id: "a1",
     type: "deleted",
@@ -382,7 +396,31 @@ function AppContent() {
     if (isDemo) return;
     if (!shopId || !active) { setAlerts([]); return; }
     const q = query(collection(db, "shops", shopId, "alerts"), orderBy("created_at", "desc"), limit(60));
-    return onSnapshot(q, (s) => setAlerts(s.docs.map((d) => ({ id: d.id, ...d.data() }))), (e) => console.error(e));
+    return onSnapshot(q, (s) => {
+      const list = s.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setAlerts(list);
+
+      // Trigger Web / Mobile Notification for newly received unread notifications
+      s.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const item = change.doc.data();
+          if (!item.seen && typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+            try {
+              const title = item.title || (item.type === "admin_notification" ? "📢 HisaabLive Announcement" : "🚨 HisaabLive Alert");
+              const body = item.message_en || item.message_roman || "You have a new alert.";
+              new Notification(title, {
+                body,
+                icon: "/favicon.ico",
+                badge: "/favicon.ico",
+                tag: change.doc.id,
+              });
+            } catch (err) {
+              console.warn("Notification trigger error:", err);
+            }
+          }
+        }
+      });
+    }, (e) => console.error(e));
   }, [shopId, active, isDemo]);
 
   // Midnight date rollover
@@ -856,6 +894,7 @@ function AppContent() {
               T={T}
               isDemo={isDemo}
               setDemoAlerts={setDemoAlerts}
+              shopId={shopId}
             />
           )}
 
@@ -943,6 +982,7 @@ function AppContent() {
                   T={T}
                   isDemo={isDemo}
                   setDemoAlerts={setDemoAlerts}
+                  shopId={shopId}
                 />
               </div>
             </div>
@@ -2977,7 +3017,7 @@ function CustomerLedger({
 // ---------------------------------------------------------------------------
 // 3. Alerts View
 // ---------------------------------------------------------------------------
-function Alerts({ alerts, t, T, isDemo, setDemoAlerts }) {
+function Alerts({ alerts, t, T, isDemo, setDemoAlerts, shopId }) {
   const [busy, setBusy] = useState(false);
   const unseen = alerts.filter((a) => !a.seen);
 
@@ -2985,7 +3025,7 @@ function Alerts({ alerts, t, T, isDemo, setDemoAlerts }) {
     setBusy(true);
     if (isDemo) {
       setTimeout(() => {
-        setDemoAlerts((prev) => prev.map((a) => ({ ...a, seen: true })));
+        if (setDemoAlerts) setDemoAlerts((prev) => prev.map((a) => ({ ...a, seen: true })));
         setBusy(false);
       }, 200);
       return;
@@ -2993,7 +3033,14 @@ function Alerts({ alerts, t, T, isDemo, setDemoAlerts }) {
     try {
       await call("ackAlerts", { ids: unseen.map((a) => a.id) });
     } catch (e) {
-      console.error(e);
+      console.warn("ackAlerts fallback to direct update:", e);
+      if (shopId) {
+        await Promise.all(
+          unseen.map((a) =>
+            updateDoc(doc(db, "shops", shopId, "alerts", a.id), { seen: true, seen_at: new Date().toISOString() }).catch(() => {})
+          )
+        );
+      }
     } finally {
       setBusy(false);
     }
@@ -3001,21 +3048,32 @@ function Alerts({ alerts, t, T, isDemo, setDemoAlerts }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: T.text }}>POS Security Alerts</h3>
-          <p style={{ margin: "2px 0 0", fontSize: 12, color: T.textMuted }}>Permanent tamper-detection record</p>
+          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: T.text }}>
+            {t?.alerts_title || "Notifications & Alerts"}
+          </h3>
+          <p style={{ margin: "3px 0 0", fontSize: 12, color: T.textMuted }}>
+            Admin announcements & POS security records
+          </p>
         </div>
         {unseen.length > 0 && (
           <button
             disabled={busy}
             onClick={markSeen}
             style={{
-              background: T.heroGradient, color: "white", border: "none",
-              borderRadius: T.radiusSm, padding: "8px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer",
+              background: T.heroGradient,
+              color: "white",
+              border: `1px solid ${T.border}`,
+              borderRadius: T.radiusSm,
+              padding: "8px 14px",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer",
+              boxShadow: T.shadowSm,
             }}
           >
-            Mark Seen
+            {busy ? "Updating…" : (t?.alerts_mark_seen || "Mark All as Seen")}
           </button>
         )}
       </div>
@@ -3025,36 +3083,100 @@ function Alerts({ alerts, t, T, isDemo, setDemoAlerts }) {
           background: T.card, borderRadius: T.radius, padding: 30, textAlign: "center",
           border: `1px solid ${T.border}`, color: T.textMuted,
         }}>
-          🛡️ No suspicious activity found. POS is clean!
+          🛡️ No suspicious activity or announcements found. All clear!
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {alerts.map((a) => (
-            <div
-              key={a.id}
-              style={{
-                background: a.seen ? T.card : T.primaryLight,
-                borderRadius: T.radius, padding: "16px",
-                borderLeft: `6px solid ${a.severity === "high" ? T.primary : T.warn}`,
-                border: `1px solid ${T.border}`,
-                boxShadow: T.shadowSm,
-                opacity: a.seen ? 0.75 : 1,
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 800, color: a.severity === "high" ? T.primary : T.warn, marginBottom: 4 }}>
-                <span>{a.severity === "high" ? "HIGH SEVERITY ALERT" : "CHECK REQUIRED"}</span>
-                <span>{a.day}</span>
-              </div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: T.text, lineHeight: 1.4 }}>
-                {a.message_en || a.message_roman}
-              </div>
-              {a.amount > 0 && (
-                <div style={{ fontSize: 14, fontWeight: 900, color: T.primary, marginTop: 6 }}>
-                  Discrepancy: Rs. {Math.round(a.amount).toLocaleString("en-US")}
+          {alerts.map((a) => {
+            const isAdminNotif = a.type === "admin_notification";
+            const isUrgent = a.severity === "high";
+            const isWarning = a.severity === "medium";
+
+            const accentColor = isAdminNotif
+              ? (isUrgent ? (T.danger || T.primary) : isWarning ? T.warn : (T.purple || "#8b5cf6"))
+              : (isUrgent ? T.primary : T.warn);
+
+            const bgColor = a.seen
+              ? T.card
+              : isAdminNotif
+              ? (isUrgent ? (T.primaryLight || "rgba(244,63,94,0.12)") : isWarning ? "rgba(245,158,11,0.12)" : (T.purpleLight || "rgba(139,92,246,0.12)"))
+              : T.primaryLight;
+
+            return (
+              <div
+                key={a.id}
+                style={{
+                  background: bgColor,
+                  borderRadius: T.radius,
+                  padding: "16px",
+                  borderLeft: `5px solid ${accentColor}`,
+                  border: `1px solid ${T.border}`,
+                  boxShadow: T.shadowSm,
+                  opacity: a.seen ? 0.78 : 1,
+                  transition: "all 0.2s ease",
+                }}
+              >
+                {/* Header row: badge and timestamp */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 800,
+                      color: accentColor,
+                      letterSpacing: 0.3,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 5,
+                    }}
+                  >
+                    {isAdminNotif ? (
+                      isUrgent ? "🚨 URGENT ANNOUNCEMENT" :
+                      isWarning ? "⚠️ IMPORTANT NOTICE" :
+                      "📢 ADMIN ANNOUNCEMENT"
+                    ) : (
+                      isUrgent ? "🚨 HIGH SEVERITY ALERT" : "⚠️ CHECK REQUIRED"
+                    )}
+                  </span>
+                  <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 600 }}>
+                    {a.day || (a.created_at ? a.created_at.slice(0, 10) : "")}
+                  </span>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {/* Admin Notification Title */}
+                {isAdminNotif && a.title && (
+                  <div style={{ fontSize: 15, fontWeight: 800, color: T.text, marginBottom: 5, lineHeight: 1.3 }}>
+                    {a.title}
+                  </div>
+                )}
+
+                {/* Message Body */}
+                <div style={{ fontSize: 13, fontWeight: isAdminNotif ? 500 : 700, color: T.text, lineHeight: 1.5 }}>
+                  {a.message_en || a.message_roman}
+                </div>
+
+                {/* Financial Discrepancy for POS alerts */}
+                {a.amount > 0 && (
+                  <div style={{ fontSize: 14, fontWeight: 900, color: T.primary, marginTop: 8 }}>
+                    Discrepancy: Rs. {Math.round(a.amount).toLocaleString("en-US")}
+                  </div>
+                )}
+
+                {/* Sender footer */}
+                {isAdminNotif && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, paddingTop: 6, borderTop: `1px dashed ${T.border}` }}>
+                    <span style={{ fontSize: 10, color: T.textMuted }}>
+                      HisaabLive System Administrator
+                    </span>
+                    {!a.seen && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: accentColor, background: "rgba(255,255,255,0.08)", padding: "2px 6px", borderRadius: 4 }}>
+                        ● Unread
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -3062,28 +3184,43 @@ function Alerts({ alerts, t, T, isDemo, setDemoAlerts }) {
 }
 
 function Notify({ shop, t, T, isDemo }) {
-  const [supported, setSupported] = useState(false);
-  const [perm, setPerm] = useState(typeof Notification !== "undefined" ? Notification.permission : "denied");
+  const [perm, setPerm] = useState(
+    typeof window !== "undefined" && "Notification" in window ? Notification.permission : "denied"
+  );
 
-  useEffect(() => {
-    if (isDemo) return;
-    isSupported().then(setSupported).catch(() => setSupported(false));
-  }, [isDemo]);
-
-  if (!supported || isDemo) return null;
+  if (isDemo || typeof window === "undefined" || !("Notification" in window)) return null;
 
   const enable = async () => {
-    if (typeof Notification !== "undefined") {
-      setPerm(await Notification.requestPermission());
+    try {
+      const res = await Notification.requestPermission();
+      setPerm(res);
+    } catch (e) {
+      console.warn("Notification permission error:", e);
     }
   };
 
+  if (perm === "granted") return null;
+
   return (
-    <div style={{ marginTop: 20, textAlign: "center", fontSize: 12 }}>
-      {perm === "granted" && <span style={{ color: T.success, fontWeight: 700 }}>✓ Notifications Active</span>}
+    <div style={{ marginTop: 16, marginBottom: 8, textAlign: "center", fontSize: 12 }}>
       {perm === "default" && (
-        <button onClick={enable} style={{ background: T.cardSecondary, color: T.text, border: `1px solid ${T.border}`, padding: "6px 12px", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>
-          Enable Phone Push Alerts
+        <button
+          onClick={enable}
+          style={{
+            background: T.cardSecondary,
+            color: T.primary,
+            border: `1px solid ${T.border}`,
+            padding: "8px 16px",
+            borderRadius: T.radiusSm,
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <span>🔔</span> Enable Instant Push Notifications
         </button>
       )}
     </div>
