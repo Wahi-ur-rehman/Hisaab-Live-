@@ -241,17 +241,17 @@ function AppContent() {
     const deltaY = e.changedTouches[0].clientY - touchStartRef.current.y;
     const duration = Date.now() - touchStartRef.current.time;
 
-    // Gesture threshold: quick intentional horizontal swipe
-    if (duration > 500) return;
-    if (Math.abs(deltaX) < 55) return;
-    if (Math.abs(deltaX) < Math.abs(deltaY) * 1.5) return;
+    // Gesture threshold: natural intentional horizontal swipe
+    if (duration > 900) return;
+    if (Math.abs(deltaX) < 40) return;
+    if (Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return;
 
     // Prevent tab swipe if any modal or sheet is open
     if (showAlertsModal || showSettingsModal || showExpenseModal || showMonthlyModal || showLogoutAllSheet) return;
 
-    // Do not intercept if originating from inputs, textareas, buttons, or designated no-swipe zones
+    // Do not intercept if typing inside an input, textarea, or contenteditable
     const target = e.target;
-    if (target && target.closest && target.closest('input, textarea, select, button, .no-swipe, [data-no-swipe]')) {
+    if (target && target.closest && target.closest('input, textarea, select, [contenteditable="true"]')) {
       return;
     }
 
@@ -259,6 +259,7 @@ function AppContent() {
     if (currentIndex === -1) return;
 
     // LTR vs RTL swipe direction awareness
+    // In LTR: swipe left (deltaX < 0) -> next tab; swipe right (deltaX > 0) -> previous tab
     const isNext = isRtl ? deltaX > 0 : deltaX < 0;
 
     if (isNext && currentIndex < TABS_ORDER.length - 1) {
@@ -742,7 +743,18 @@ function AppContent() {
   return (
     <>
       <style>{globalStyle}</style>
-      <div style={{ maxWidth: 460, margin: "0 auto", minHeight: "100vh", background: T.bg, position: "relative" }}>
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        style={{
+          maxWidth: 460,
+          margin: "0 auto",
+          minHeight: "100vh",
+          background: T.bg,
+          position: "relative",
+          touchAction: "pan-y",
+        }}
+      >
         
         {/* Notch-Safe Header */}
         <Header
