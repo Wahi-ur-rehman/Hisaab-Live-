@@ -259,21 +259,43 @@ function AppContent() {
     }
   `;
 
-  // Real Firebase Auth listener
+  // Real Firebase Auth listener with guaranteed 2.5s fallback unblock
   useEffect(() => {
-    return onAuthStateChanged(auth, async (u) => {
+    const timer = setTimeout(() => {
+      setAuthReady((ready) => {
+        if (!ready) {
+          const saved = localStorage.getItem("active_shop_id") || "";
+          setShopId(saved);
+          return true;
+        }
+        return true;
+      });
+    }, 2500);
+
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      clearTimeout(timer);
       if (!isDemo) {
         if (!u) {
-          const saved = localStorage.getItem("active_shop_id");
-          if (!saved) setShopId("");
+          const saved = localStorage.getItem("active_shop_id") || "";
+          setShopId(saved);
         } else {
-          const r = await u.getIdTokenResult();
-          const sid = r.claims.shopId || localStorage.getItem("active_shop_id") || "";
-          setShopId(sid);
+          try {
+            const r = await u.getIdTokenResult();
+            const sid = (r && r.claims && r.claims.shopId) || localStorage.getItem("active_shop_id") || "";
+            setShopId(sid);
+          } catch (e) {
+            console.warn("Auth token lookup error:", e);
+            setShopId(localStorage.getItem("active_shop_id") || "");
+          }
         }
       }
       setAuthReady(true);
     });
+
+    return () => {
+      clearTimeout(timer);
+      unsub();
+    };
   }, [isDemo]);
 
   // Firestore live shop profile
@@ -614,6 +636,33 @@ function AppContent() {
             <p style={{ textAlign: "center", fontSize: 12, color: T.textMuted, margin: "10px 0 0", lineHeight: 1.4 }}>
               Test all dashboard features with mock data.
             </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Waiting for live shop document from Firestore
+  if (shopId && !shop && !isDemo) {
+    return (
+      <>
+        <style>{globalStyle}</style>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: T.bg, padding: 20 }}>
+          <div style={{ textAlign: "center", color: T.textMuted }}>
+            <div style={{ width: 64, height: 64, borderRadius: "50%", background: T.primaryGradient, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontSize: 32, boxShadow: T.shadowMd }}>
+              ⚡
+            </div>
+            <p style={{ fontWeight: 700, fontSize: 16, color: T.text, margin: 0 }}>HisaabLive</p>
+            <p style={{ fontSize: 13, color: T.textMuted, margin: "6px 0 16px" }}>Connecting to shop...</p>
+            <button
+              onClick={logout}
+              style={{
+                background: T.cardSecondary, color: T.text, border: `1.5px solid ${T.border}`,
+                borderRadius: T.radiusSm, padding: "8px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer"
+              }}
+            >
+              Back to Login
+            </button>
           </div>
         </div>
       </>
@@ -1282,13 +1331,13 @@ function Hisaab({
   const activeExpenses = isDemo ? demoExpenses : exps;
   const totalExp = activeExpenses.reduce((a, b) => a + Number(b.amount || 0), 0);
   
-  const sale = shop.today_sale_date === today ? shop.today_sale || 0 : 0;
-  const missing = shop.today_sale_date === today ? shop.today_missing || 0 : 0;
+  const sale = (shop && shop.today_sale_date === today) ? (shop.today_sale || 0) : 0;
+  const missing = (shop && shop.today_sale_date === today) ? (shop.today_missing || 0) : 0;
   const netProfit = sale - totalExp;
   const todayMargin = sale > 0 ? ((netProfit / sale) * 100).toFixed(1) : "0.0";
   const khataReceivable = isDemo
     ? ((demoCustomers || []).reduce((a, c) => a + (c.balance > 0 ? c.balance : 0), 0))
-    : (shop.khata_receivables || shop.khata_total || 0);
+    : ((shop && (shop.khata_receivables || shop.khata_total)) || 0);
 
   const mSale = isDemo ? 540000 : ((month && month.sale) || 0);
   const mExp = isDemo ? (110000 + totalExp) : ((month && month.expense) || 0);

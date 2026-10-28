@@ -64,8 +64,85 @@ if (typeof window !== 'undefined') {
   });
 }
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary caught error:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#090d16',
+          color: '#f8fafc',
+          padding: 24,
+          fontFamily: 'sans-serif',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+          <h2 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 800 }}>Something went wrong</h2>
+          <p style={{ color: '#94a3b8', fontSize: 13, maxWidth: 360, margin: '0 0 20px', lineHeight: 1.5 }}>
+            {this.state.error?.message || "An unexpected error occurred."}
+          </p>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                padding: '10px 18px',
+                borderRadius: 8,
+                background: '#38bdf8',
+                color: '#090d16',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: 'pointer'
+              }}
+            >
+              Reload App
+            </button>
+            <button
+              onClick={() => {
+                try {
+                  localStorage.removeItem('active_shop_id');
+                } catch (e) {}
+                window.location.reload();
+              }}
+              style={{
+                padding: '10px 18px',
+                borderRadius: 8,
+                background: '#1e293b',
+                color: '#f8fafc',
+                border: '1px solid #334155',
+                fontWeight: 600,
+                fontSize: 14,
+                cursor: 'pointer'
+              }}
+            >
+              Reset Session
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 );
