@@ -47,6 +47,11 @@ jobs:
             echo "::error title=Missing CAPGO_TOKEN::The CAPGO_TOKEN secret is not set in GitHub repository settings. Please navigate to https://github.com/Wahi-ur-rehman/Hisaab-Live-/settings/secrets/actions, click 'New repository secret', name it CAPGO_TOKEN, and paste your Capgo API key."
             exit 1
           fi
+          # Ensure app and channel exist in Capgo Cloud
+          npx @capgo/cli app add com.hisaablive.owner --apikey "$CAPGO_TOKEN" --name "HisaabLive" || true
+          npx @capgo/cli channel add production com.hisaablive.owner --apikey "$CAPGO_TOKEN" --default || true
+
+          # Upload production OTA bundle
           npx @capgo/cli bundle upload com.hisaablive.owner \
             --apikey "$CAPGO_TOKEN" \
             --channel production \
