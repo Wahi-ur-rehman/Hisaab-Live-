@@ -4,5 +4,13 @@
   "webDir": "dist",
   "server": {
     "androidScheme": "https"
+  },
+  "plugins": {
+    "CapacitorUpdater": {
+      "autoUpdate": true,
+      "statsUrl": "https://stats.capgo.app",
+      "channel": "production",
+      "resetWhenUpdate": true
+    }
   }
 }

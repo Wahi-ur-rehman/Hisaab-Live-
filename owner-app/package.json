@@ -12,6 +12,7 @@
     "@capacitor/android": "^6.2.2",
     "@capacitor/cli": "^6.2.2",
     "@capacitor/core": "^6.2.2",
+    "@capgo/capacitor-updater": "^6.53.0",
     "@ionic/react": "^9.0.9",
     "@ionic/react-router": "^9.0.9",
     "firebase": "^10.14.1",

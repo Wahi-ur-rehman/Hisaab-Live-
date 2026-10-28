@@ -18,6 +18,14 @@ import './theme/variables.css';
 import './index.css';
 
 import App from './App.jsx';
+import { CapacitorUpdater } from '@capgo/capacitor-updater';
+
+// Notify Capgo OTA updater that app booted safely
+try {
+  CapacitorUpdater.notifyAppReady();
+} catch (e) {
+  // Gracefully ignored when running in web browser preview
+}
 
 // Initialize Ionic React with Material Design mode
 setupIonicReact({ mode: 'md' });

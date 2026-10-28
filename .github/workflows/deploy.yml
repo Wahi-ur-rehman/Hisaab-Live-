@@ -1,0 +1,55 @@
+name: Deploy OTA Updates (Capgo)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'owner-app/**'
+  workflow_dispatch:
+
+jobs:
+  deploy-ota:
+    name: Build & Push OTA Web Bundle
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: owner-app/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: owner-app
+        run: npm ci || npm install
+
+      - name: Build Production Web Bundle
+        working-directory: owner-app
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY || 'AIzaSyCcbUDXSqjFOwXHC1_3j3PfuxG6i2msT3E' }}
+          VITE_FIREBASE_AUTH_DOMAIN: hissab-live.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: hissab-live
+          VITE_FIREBASE_MESSAGING_SENDER_ID: "1028486183617"
+          VITE_FIREBASE_APP_ID: "1:1028486183617:web:e03c33a79f79c06645f240"
+        run: npm run build
+
+      - name: Deploy OTA Update to Capgo
+        working-directory: owner-app
+        env:
+          CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN }}
+        run: |
+          if [ -z "$CAPGO_TOKEN" ]; then
+            echo "::warning title=Missing CAPGO_TOKEN::CAPGO_TOKEN secret is not set in GitHub repository settings. Add your token from https://capgo.app to enable instant OTA deployments."
+            exit 1
+          fi
+          npx @capgo/cli bundle upload \
+            --apikey "$CAPGO_TOKEN" \
+            --channel production \
+            --path ./dist \
+            --auto-bump patch \
+            --no-key
