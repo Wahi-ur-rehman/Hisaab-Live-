@@ -8,12 +8,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "firebase": "^10.12.2",
+    "firebase": "^10.14.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^5.4.0"
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.14"
+  },
+  "overrides": {
+    "undici": "^6.21.1",
+    "@grpc/grpc-js": "^1.13.5",
+    "launch-editor": "^2.10.1"
   }
 }

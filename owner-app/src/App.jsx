@@ -13,7 +13,7 @@ import TabBar from "./components/common/TabBar";
 import ActionSheetModal from "./components/common/ActionSheetModal";
 
 const app = initializeApp({
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCcbUDXSqjFOwXHC1_3j3PfuxG6i2msT3E",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "hissab-live.firebaseapp.com",
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "hissab-live",
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "1028486183617",
