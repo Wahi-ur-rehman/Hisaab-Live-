@@ -10,7 +10,7 @@
   "dependencies": {
     "@capacitor-community/safe-area": "^6.0.0-alpha.8",
     "@capacitor/android": "^6.0.0",
-    "@capacitor/cli": "^6.0.0",
+    "@capacitor/cli": "^8.5.3",
     "@capacitor/core": "^6.0.0",
     "@ionic/react": "^9.0.9",
     "@ionic/react-router": "^9.0.9",
