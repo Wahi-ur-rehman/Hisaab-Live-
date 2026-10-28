@@ -11,6 +11,7 @@ import { LanguageProvider, useLanguage } from "./context/LanguageContext";
 import Header from "./components/common/Header";
 import TabBar from "./components/common/TabBar";
 import ActionSheetModal from "./components/common/ActionSheetModal";
+import SettingsModal from "./components/settings/SettingsModal";
 
 const app = initializeApp({
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
@@ -199,7 +200,72 @@ function AppContent() {
   const toggleTheme = () => {
     const next = themeMode === "dark" ? "light" : "dark";
     setThemeMode(next);
-    localStorage.setItem("hl_theme", next);
+  };
+
+  // Synchronize DOM classes, Ionic palette, and localStorage on themeMode change
+  useEffect(() => {
+    const isDark = themeMode !== "light";
+    const root = document.documentElement;
+    const body = document.body;
+    if (isDark) {
+      root.classList.add("dark", "ion-palette-dark");
+      body.classList.add("dark");
+      root.style.colorScheme = "dark";
+    } else {
+      root.classList.remove("dark", "ion-palette-dark");
+      body.classList.remove("dark");
+      root.style.colorScheme = "light";
+    }
+    localStorage.setItem("hl_theme", themeMode);
+  }, [themeMode]);
+
+  // Settings Screen / Modal State
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+  // Swipe Gestures Between Primary Tabs
+  const TABS_ORDER = ["hisaab", "expenses", "khata", "reports"];
+  const touchStartRef = React.useRef({ x: 0, y: 0, time: 0 });
+
+  const handleTouchStart = (e) => {
+    if (!e.touches || e.touches.length !== 1) return;
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      time: Date.now(),
+    };
+  };
+
+  const handleTouchEnd = (e) => {
+    if (!e.changedTouches || e.changedTouches.length !== 1) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartRef.current.x;
+    const deltaY = e.changedTouches[0].clientY - touchStartRef.current.y;
+    const duration = Date.now() - touchStartRef.current.time;
+
+    // Gesture threshold: quick intentional horizontal swipe
+    if (duration > 500) return;
+    if (Math.abs(deltaX) < 55) return;
+    if (Math.abs(deltaX) < Math.abs(deltaY) * 1.5) return;
+
+    // Prevent tab swipe if any modal or sheet is open
+    if (showAlertsModal || showSettingsModal || showExpenseModal || showMonthlyModal || showLogoutAllSheet) return;
+
+    // Do not intercept if originating from inputs, textareas, buttons, or designated no-swipe zones
+    const target = e.target;
+    if (target && target.closest && target.closest('input, textarea, select, button, .no-swipe, [data-no-swipe]')) {
+      return;
+    }
+
+    const currentIndex = TABS_ORDER.indexOf(view);
+    if (currentIndex === -1) return;
+
+    // LTR vs RTL swipe direction awareness
+    const isNext = isRtl ? deltaX > 0 : deltaX < 0;
+
+    if (isNext && currentIndex < TABS_ORDER.length - 1) {
+      setView(TABS_ORDER[currentIndex + 1]);
+    } else if (!isNext && currentIndex > 0) {
+      setView(TABS_ORDER[currentIndex - 1]);
+    }
   };
   
   // Two-step Login States
@@ -683,15 +749,37 @@ function AppContent() {
           shop={shop}
           unseenAlerts={unseen}
           onOpenAlerts={() => setShowAlertsModal(true)}
+          onOpenSettings={() => setShowSettingsModal(true)}
+          isDemo={isDemo}
+          onExitDemo={logout}
+        />
+
+        {/* Dedicated Settings Feature / Modal */}
+        <SettingsModal
+          isOpen={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          shop={shop}
           themeMode={themeMode}
           onToggleTheme={toggleTheme}
           isDemo={isDemo}
           onExitDemo={logout}
-          onLogout={logoutAll}
+          onLogout={logout}
+          onLogoutAll={() => setShowLogoutAllSheet(true)}
+          supportUrl={SUPPORT_WA}
         />
 
-        {/* Main Content Area */}
-        <div style={{ padding: "16px", paddingBottom: 110 }}>
+        {/* Main Content Area with Native Touch & Swipe Gesture Navigation */}
+        <div
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          style={{
+            padding: "16px",
+            paddingBottom: 110,
+            touchAction: "pan-y",
+            WebkitOverflowScrolling: "touch",
+            minHeight: "calc(100vh - 70px)",
+          }}
+        >
           {view === "hisaab" && (
             <Hisaab
               shop={shop}

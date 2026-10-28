@@ -17,12 +17,13 @@
   /* Deep Slate light tokens */
   --color-slate-base: #f1f5f9;
   --color-slate-card: #ffffff;
-  --color-slate-border: #e2e8f0;
-  --color-slate-muted: #94a3b8;
+  --color-slate-border: #cbd5e1;
+  --color-slate-muted: #64748b;
+  --color-slate-text: #0f172a;
   --color-emerald-mint: #10b981;
   --color-amber-warm: #f59e0b;
   --color-rose-crimson: #f43f5e;
-  --color-sky-cyan: #38bdf8;
+  --color-sky-cyan: #0284c7;
 }
 
 .dark,
@@ -33,6 +34,7 @@ body.dark {
   --color-slate-card: #1a243b;
   --color-slate-border: #223354;
   --color-slate-muted: #94a3b8;
+  --color-slate-text: #f8fafc;
   --color-emerald-mint: #10b981;
   --color-amber-warm: #f59e0b;
   --color-rose-crimson: #f43f5e;
@@ -66,6 +68,14 @@ body {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Ensure inputs, textareas, and interactive elements remain selectable & responsive */
+input, textarea, select {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* RTL / Urdu typography adjustments */

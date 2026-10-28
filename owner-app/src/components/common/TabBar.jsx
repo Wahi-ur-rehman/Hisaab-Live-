@@ -138,7 +138,7 @@ export default function TabBar({
                 className={`text-[11px] leading-tight truncate max-w-full tracking-tight transition-colors ${
                   isActive
                     ? 'text-sky-cyan font-bold'
-                    : 'text-slate-muted group-hover:text-slate-300 font-medium'
+                    : 'text-slate-muted group-hover:text-sky-cyan font-medium'
                 }`}
               >
                 {label}
