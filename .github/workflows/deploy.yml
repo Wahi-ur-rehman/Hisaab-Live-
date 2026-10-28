@@ -20,13 +20,13 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
           cache-dependency-path: owner-app/package-lock.json
 
       - name: Install Dependencies
         working-directory: owner-app
-        run: npm ci || npm install
+        run: npm ci || npm install --legacy-peer-deps
 
       - name: Build Production Web Bundle
         working-directory: owner-app
@@ -41,13 +41,13 @@ jobs:
       - name: Deploy OTA Update to Capgo
         working-directory: owner-app
         env:
-          CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN }}
+          CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN || secrets.CAPGO_API_KEY }}
         run: |
           if [ -z "$CAPGO_TOKEN" ]; then
-            echo "::warning title=Missing CAPGO_TOKEN::CAPGO_TOKEN secret is not set in GitHub repository settings. Add your token from https://capgo.app to enable instant OTA deployments."
+            echo "::error title=Missing CAPGO_TOKEN::The CAPGO_TOKEN secret is not set in GitHub repository settings. Please navigate to https://github.com/Wahi-ur-rehman/Hisaab-Live-/settings/secrets/actions, click 'New repository secret', name it CAPGO_TOKEN, and paste your Capgo API key."
             exit 1
           fi
-          npx @capgo/cli bundle upload \
+          npx @capgo/cli bundle upload com.hisaablive.owner \
             --apikey "$CAPGO_TOKEN" \
             --channel production \
             --path ./dist \
