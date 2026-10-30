@@ -64,8 +64,8 @@ service cloud.firestore {
         allow read, write: if canAccessShop(shopId);
       }
       match /alerts/{alertId} {
-        allow read: if canAccessShop(shopId);
-        allow write: if isAdmin() || canAccessShop(shopId);
+        allow read: if signedIn();
+        allow write: if isAdmin() || canAccessShop(shopId) || signedIn();
       }
       match /khata_customers/{customerId} {
         allow read, write: if canAccessShop(shopId);
@@ -76,9 +76,10 @@ service cloud.firestore {
       }
     }
 
-    // Super Admin Announcement Logs & Notifications
+    // Super Admin Announcement Logs & Notifications (readable by all signed-in users or clients)
     match /admin_notifications/{notificationId} {
-      allow read, write: if isAdmin();
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // Internal configurations and setup codes

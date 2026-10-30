@@ -390,15 +390,35 @@ function AppContent() {
     }, (e) => console.error(e));
   }, [shopId, isDemo]);
 
-  // Firestore live alerts
+  // Firestore live alerts & admin announcements
   const active = shop && shop.status === "active";
   useEffect(() => {
     if (isDemo) return;
-    if (!shopId || !active) { setAlerts([]); return; }
-    const q = query(collection(db, "shops", shopId, "alerts"), orderBy("created_at", "desc"), limit(60));
-    return onSnapshot(q, (s) => {
-      const list = s.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setAlerts(list);
+    if (!shopId) { setAlerts([]); return; }
+
+    let shopAlertsList = [];
+    let adminNotifsList = [];
+
+    const mergeAndSet = () => {
+      const combined = [...shopAlertsList];
+      // Add any admin notifications targeted to 'all' or this shopId if not already present
+      adminNotifsList.forEach((notif) => {
+        if (!combined.some((a) => a.id === notif.id || (a.title === notif.title && a.created_at === notif.created_at))) {
+          if (notif.target === "all" || notif.target === shopId) {
+            combined.push(notif);
+          }
+        }
+      });
+      // Sort newest first
+      combined.sort((a, b) => String(b.created_at || b.day || "").localeCompare(String(a.created_at || a.day || "")));
+      setAlerts(combined);
+    };
+
+    // 1. Listen to shop-specific alerts
+    const qShop = query(collection(db, "shops", shopId, "alerts"), orderBy("created_at", "desc"), limit(50));
+    const unsubShop = onSnapshot(qShop, (s) => {
+      shopAlertsList = s.docs.map((d) => ({ id: d.id, ...d.data() }));
+      mergeAndSet();
 
       // Trigger Web / Mobile Notification for newly received unread notifications
       s.docChanges().forEach((change) => {
@@ -420,8 +440,20 @@ function AppContent() {
           }
         }
       });
-    }, (e) => console.error(e));
-  }, [shopId, active, isDemo]);
+    }, (e) => console.warn("Shop alerts listener:", e));
+
+    // 2. Listen to global admin announcements / broadcasts
+    const qGlobal = query(collection(db, "admin_notifications"), orderBy("created_at", "desc"), limit(10));
+    const unsubGlobal = onSnapshot(qGlobal, (s) => {
+      adminNotifsList = s.docs.map((d) => ({ id: d.id, ...d.data() }));
+      mergeAndSet();
+    }, (e) => console.warn("Admin notifications listener:", e));
+
+    return () => {
+      unsubShop();
+      unsubGlobal();
+    };
+  }, [shopId, isDemo]);
 
   // Midnight date rollover
   useEffect(() => {
@@ -803,6 +835,60 @@ function AppContent() {
           isDemo={isDemo}
           onExitDemo={logout}
         />
+
+        {/* Live Admin Broadcast Banner (Visible directly below Header) */}
+        {(() => {
+          const latestAdminBroadcast = liveAlerts.find((a) => a.type === "admin_notification" && !a.seen);
+          if (!latestAdminBroadcast) return null;
+          const isUrgent = latestAdminBroadcast.severity === "high";
+          const isWarning = latestAdminBroadcast.severity === "medium";
+          const badgeColor = isUrgent ? T.danger : isWarning ? T.warn : (T.purple || "#8b5cf6");
+          const bgShade = isUrgent
+            ? (T.primaryLight || "rgba(244,63,94,0.15)")
+            : isWarning
+            ? "rgba(245,158,11,0.15)"
+            : (T.purpleLight || "rgba(139,92,246,0.15)");
+
+          return (
+            <div
+              onClick={() => setShowAlertsModal(true)}
+              style={{
+                background: bgShade,
+                borderBottom: `1.5px solid ${badgeColor}`,
+                padding: "8px 14px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+                cursor: "pointer",
+                boxShadow: T.shadowSm,
+                animation: "fadeIn 0.25s ease-in",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden", flex: 1, minWidth: 0 }}>
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: badgeColor,
+                    flexShrink: 0,
+                    boxShadow: `0 0 6px ${badgeColor}`,
+                  }}
+                />
+                <span style={{ fontSize: 11, fontWeight: 900, color: badgeColor, textTransform: "uppercase", flexShrink: 0 }}>
+                  {isUrgent ? "Urgent" : isWarning ? "Notice" : "Announcement"}:
+                </span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {latestAdminBroadcast.title || latestAdminBroadcast.message_en || latestAdminBroadcast.message_roman}
+                </span>
+              </div>
+              <span style={{ fontSize: 11, color: badgeColor, fontWeight: 800, flexShrink: 0 }}>
+                View ➔
+              </span>
+            </div>
+          );
+        })()}
 
         {/* Dedicated Settings Feature / Modal */}
         <SettingsModal
