@@ -11,7 +11,7 @@ export default function SettingsModal({
   onExitDemo,
   onLogout,
   onLogoutAll,
-  supportUrl = 'https://wa.me/923001234567',
+  supportUrl = 'https://wa.me/923229772869',
 }) {
   const { lang, toggleLanguage, t, isRtl } = useLanguage();
 

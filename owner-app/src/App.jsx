@@ -41,7 +41,7 @@ const CATS = [
   { name: "Other", icon: "📦", color: "#64748b" },
 ];
 
-const SUPPORT_WA = import.meta.env.VITE_SUPPORT_WA || "https://wa.me/923001234567";
+const SUPPORT_WA = import.meta.env.VITE_SUPPORT_WA || "https://wa.me/923229772869";
 
 const todayPK = () =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Karachi", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -454,6 +454,23 @@ function AppContent() {
       unsubGlobal();
     };
   }, [shopId, isDemo]);
+
+  // Firestore live khata customers listener
+  const [khataCustomers, setKhataCustomers] = useState([]);
+  useEffect(() => {
+    if (isDemo || !shopId) {
+      if (!isDemo) setKhataCustomers([]);
+      return;
+    }
+    const qCust = collection(db, "shops", shopId, "khata_customers");
+    return onSnapshot(
+      qCust,
+      (s) => setKhataCustomers(s.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      (e) => console.warn("Khata customers listener error:", e)
+    );
+  }, [shopId, isDemo]);
+
+  const activeKhataCustomers = isDemo ? demoCustomers : khataCustomers;
 
   // Midnight date rollover
   useEffect(() => {
@@ -927,6 +944,7 @@ function AppContent() {
               demoExpenses={demoExpenses}
               setDemoExpenses={setDemoExpenses}
               demoCustomers={demoCustomers}
+              customers={activeKhataCustomers}
               onAlerts={() => setShowAlertsModal(true)}
               onOpenExpenseDetails={() => setShowExpenseModal(true)}
               onOpenMonthlyStatement={(sale, exp) => {
@@ -970,6 +988,7 @@ function AppContent() {
               t={t}
               isDemo={isDemo}
               demoExpenses={demoExpenses}
+              customers={activeKhataCustomers}
             />
           )}
 
@@ -1101,6 +1120,7 @@ function AppContent() {
             T={T}
             isDemo={isDemo}
             demoExpenses={demoExpenses}
+            customers={activeKhataCustomers}
             onClose={() => setShowMonthlyModal(false)}
           />
         )}
@@ -1334,6 +1354,7 @@ function ReportsTabContent({
   t,
   isDemo,
   demoExpenses,
+  customers = [],
 }) {
   const ym = today.slice(0, 7);
   const [items, setItems] = useState([]);
@@ -1395,6 +1416,7 @@ function ReportsTabContent({
         margin,
         catBreakdown,
         items,
+        customers,
       });
     } catch (e) {
       console.error("PDF generation failed:", e);
@@ -1534,6 +1556,7 @@ function Hisaab({
   demoExpenses,
   setDemoExpenses,
   demoCustomers,
+  customers = [],
   onAlerts,
   onOpenExpenseDetails,
   onOpenMonthlyStatement,
@@ -1563,7 +1586,14 @@ function Hisaab({
   const todayMargin = sale > 0 ? ((netProfit / sale) * 100).toFixed(1) : "0.0";
   const khataReceivable = isDemo
     ? ((demoCustomers || []).reduce((a, c) => a + (c.balance > 0 ? c.balance : 0), 0))
-    : ((shop && (shop.khata_receivables || shop.khata_total)) || 0);
+    : ((customers && customers.length > 0)
+        ? customers.reduce((a, c) => a + (c.balance > 0 ? c.balance : 0), 0)
+        : ((shop && (shop.khata_receivables || shop.khata_total)) || 0));
+  const khataAdvance = isDemo
+    ? ((demoCustomers || []).reduce((a, c) => a + (c.balance < 0 ? Math.abs(c.balance) : 0), 0))
+    : ((customers && customers.length > 0)
+        ? customers.reduce((a, c) => a + (c.balance < 0 ? Math.abs(c.balance) : 0), 0)
+        : ((shop && shop.khata_advance) || 0));
 
   const mSale = isDemo ? 540000 : ((month && month.sale) || 0);
   const mExp = isDemo ? (110000 + totalExp) : ((month && month.expense) || 0);
@@ -1668,23 +1698,30 @@ function Hisaab({
         </div>
       </div>
 
-      {/* Khata Receivables Banner (Warm Amber) */}
-      {khataReceivable > 0 && (
+      {/* Khata Receivables & Advance Payments Banner */}
+      {(khataReceivable > 0 || khataAdvance > 0) && (
         <div className="rounded-2xl bg-slate-card border border-amber-warm/30 p-3.5 shadow-sm mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-amber-warm/15 border border-amber-warm/30 text-amber-warm flex items-center justify-center font-bold text-base flex-shrink-0">
               📒
             </div>
             <div>
-              <span className="text-[11px] font-bold text-amber-warm uppercase tracking-wide">
-                {t.receivables || "Khata Receivables (Baqaya)"}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-amber-warm uppercase tracking-wide">
+                  {t.receivables || "Khata Receivables"}
+                </span>
+                {khataAdvance > 0 && (
+                  <span className="text-[10px] font-bold text-emerald-mint bg-emerald-mint/15 px-1.5 py-0.2 rounded">
+                    +Rs. {Math.round(khataAdvance).toLocaleString()} Advance
+                  </span>
+                )}
+              </div>
               <div className="text-lg font-black text-amber-warm">
                 Rs. {Math.round(khataReceivable).toLocaleString()}
               </div>
             </div>
           </div>
-          <span className="text-xs text-slate-400 font-medium">Pending</span>
+          <span className="text-xs text-slate-400 font-medium">Baqaya</span>
         </div>
       )}
 
@@ -1970,6 +2007,7 @@ function generateMonthlyPdf({
   margin,
   catBreakdown,
   items,
+  customers = [],
 }) {
   const cleanAscii = (str, fallback = "") => {
     if (!str) return fallback;
@@ -2149,6 +2187,177 @@ function generateMonthlyPdf({
     y += 5.8;
   });
 
+  // -------------------------------------------------------------------------
+  // DEDICATED SEPARATE PAGE: PERSONAL EXPENSE & KHATA CREDIT LEDGER
+  // -------------------------------------------------------------------------
+  doc.addPage();
+  y = 14;
+
+  // Header Banner for Ledger Page
+  doc.setFillColor(15, 23, 42); // Slate 900
+  doc.rect(0, 0, pageWidth, 28, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.text("HisaabLive", marginX, 12);
+
+  doc.setFontSize(8.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(245, 158, 11); // Amber
+  doc.text("PERSONAL EXPENSE & KHATA CREDIT LEDGER", marginX, 18);
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text(cleanAscii(shopName, "Al-Madina General Store"), pageWidth - marginX, 12, { align: "right" });
+
+  doc.setFontSize(8.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(203, 213, 225);
+  doc.text(`Shop Code: ${(shopCode || "G10").toUpperCase()} • Full Credit & Advance Audit`, pageWidth - marginX, 18, { align: "right" });
+
+  y = 35;
+
+  // Ledger Headline
+  doc.setTextColor(15, 23, 42);
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.text("Personal Khata Ledger & Advance Payment Summary", marginX, y);
+
+  y += 5;
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 116, 139);
+  doc.text("Includes all registered customer balances, debt receivables (Baqaya), and advance credit balances.", marginX, y);
+
+  y += 8;
+
+  // Calculate Ledger Statistics
+  const totalReceivable = customers.reduce((acc, c) => acc + (c.balance > 0 ? Number(c.balance) : 0), 0);
+  const totalAdvancePaid = customers.reduce((acc, c) => acc + (c.balance < 0 ? Math.abs(Number(c.balance)) : 0), 0);
+  const netLedger = totalReceivable - totalAdvancePaid;
+
+  // Ledger KPI Cards
+  const kpiW = (pageWidth - marginX * 2 - gap * 2) / 3;
+  const ledgerKpis = [
+    { label: "TOTAL BAQAYA (OWED TO SHOP)", val: `Rs. ${Math.round(totalReceivable).toLocaleString()}`, color: [217, 119, 6] },
+    { label: "TOTAL ADVANCE PAYMENTS RECEIVED", val: `+Rs. ${Math.round(totalAdvancePaid).toLocaleString()}`, color: [16, 185, 129] },
+    { label: "NET LEDGER BALANCE", val: `Rs. ${Math.round(netLedger).toLocaleString()}`, color: [37, 99, 235] },
+  ];
+
+  ledgerKpis.forEach((kpi, idx) => {
+    const x = marginX + idx * (kpiW + gap);
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(x, y, kpiW, 16, 2, 2, "FD");
+
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(100, 116, 139);
+    doc.text(kpi.label, x + 3.5, y + 5);
+
+    doc.setFontSize(9.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(kpi.color[0], kpi.color[1], kpi.color[2]);
+    doc.text(kpi.val, x + 3.5, y + 12);
+  });
+
+  y += 22;
+
+  // Customer Ledger Table Section
+  doc.setFontSize(10.5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(15, 23, 42);
+  doc.text(`Customer Ledger Accounts (${customers.length} Registered Accounts)`, marginX, y);
+  y += 4;
+
+  // Table Header
+  doc.setFillColor(241, 245, 249);
+  doc.rect(marginX, y, pageWidth - marginX * 2, 6.5, "F");
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(71, 85, 105);
+  doc.text("Customer Name", marginX + 4, y + 4.2);
+  doc.text("Phone Number", marginX + 65, y + 4.2);
+  doc.text("Status", marginX + 115, y + 4.2);
+  doc.text("Balance / Amount (PKR)", pageWidth - marginX - 4, y + 4.2, { align: "right" });
+  y += 6.5;
+
+  if (customers.length === 0) {
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(148, 163, 184);
+    doc.text("No Khata customer accounts registered yet.", marginX + 4, y + 6);
+    y += 10;
+  } else {
+    // Sort by largest balance first
+    const sortedCustomers = [...customers].sort((a, b) => (b.balance || 0) - (a.balance || 0));
+
+    sortedCustomers.forEach((cust) => {
+      if (y > 270) {
+        doc.addPage();
+        y = 14;
+        // Repeat table header on continuation page
+        doc.setFillColor(241, 245, 249);
+        doc.rect(marginX, y, pageWidth - marginX * 2, 6.5, "F");
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(71, 85, 105);
+        doc.text("Customer Name", marginX + 4, y + 4.2);
+        doc.text("Phone Number", marginX + 65, y + 4.2);
+        doc.text("Status", marginX + 115, y + 4.2);
+        doc.text("Balance / Amount (PKR)", pageWidth - marginX - 4, y + 4.2, { align: "right" });
+        y += 6.5;
+      }
+
+      const balNum = Number(cust.balance || 0);
+      const isOwed = balNum > 0;
+      const isAdv = balNum < 0;
+
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 41, 59);
+      doc.text(cleanAscii(cust.name, "Customer").slice(0, 36), marginX + 4, y + 4.2);
+
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 116, 139);
+      doc.text(cust.phone || "-", marginX + 65, y + 4.2);
+
+      // Status Badge
+      if (isOwed) {
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(217, 119, 6); // Amber
+        doc.text("Baqaya (Owes)", marginX + 115, y + 4.2);
+      } else if (isAdv) {
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(16, 185, 129); // Emerald
+        doc.text("Advance Received", marginX + 115, y + 4.2);
+      } else {
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(148, 163, 184);
+        doc.text("Cleared / Nil", marginX + 115, y + 4.2);
+      }
+
+      // Balance Amount
+      doc.setFont("helvetica", "bold");
+      if (isOwed) {
+        doc.setTextColor(217, 119, 6);
+        doc.text(`Rs. ${Math.round(balNum).toLocaleString()}`, pageWidth - marginX - 4, y + 4.2, { align: "right" });
+      } else if (isAdv) {
+        doc.setTextColor(16, 185, 129);
+        doc.text(`+Rs. ${Math.round(Math.abs(balNum)).toLocaleString()}`, pageWidth - marginX - 4, y + 4.2, { align: "right" });
+      } else {
+        doc.setTextColor(100, 116, 139);
+        doc.text("Rs. 0", pageWidth - marginX - 4, y + 4.2, { align: "right" });
+      }
+
+      doc.setDrawColor(241, 245, 249);
+      doc.line(marginX, y + 5.5, pageWidth - marginX, y + 5.5);
+      y += 5.8;
+    });
+  }
+
   // Multi-page footer across all pages
   const totalPages = doc.internal.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
@@ -2176,6 +2385,7 @@ function MonthlyStatementModal({
   T,
   isDemo,
   demoExpenses,
+  customers = [],
   onClose,
 }) {
   const [items, setItems] = useState([]);
@@ -2236,6 +2446,7 @@ function MonthlyStatementModal({
         margin,
         catBreakdown,
         items,
+        customers,
       });
     } catch (err) {
       console.error(err);
@@ -2624,6 +2835,8 @@ function Khata({ shopId, t, T, isDemo, demoCustomers, setDemoCustomers, demoEntr
   }
 
   const receivable = activeCustomers.reduce((a, c) => a + (c.balance > 0 ? c.balance : 0), 0);
+  const totalAdvance = activeCustomers.reduce((a, c) => a + (c.balance < 0 ? Math.abs(c.balance) : 0), 0);
+  const netKhataBalance = activeCustomers.reduce((a, c) => a + (Number(c.balance) || 0), 0);
   const q = search.trim().toLowerCase();
   const list = activeCustomers
     .filter((c) => !q || (c.name || "").toLowerCase().includes(q) || (c.phone || "").includes(q))
@@ -2631,17 +2844,36 @@ function Khata({ shopId, t, T, isDemo, demoCustomers, setDemoCustomers, demoEntr
 
   return (
     <div>
-      {/* Khata Hero Card */}
+      {/* Khata Hero Card with Baqaya & Advance Totals */}
       <div className="rounded-2xl bg-gradient-to-br from-slate-900 via-slate-850 to-slate-800 border border-amber-warm/30 p-5 text-white mb-4 shadow-lg relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-amber-warm/10 blur-3xl pointer-events-none -mr-8 -mt-8" />
-        <div className="text-xs font-bold uppercase tracking-wider text-amber-warm/90">
-          Total Khata to Receive (Baqaya)
+        <div className="flex justify-between items-start">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-wider text-amber-warm/90">
+              Total Khata to Receive (Baqaya)
+            </div>
+            <div className="text-3xl font-black text-amber-warm my-1.5 tracking-tight">
+              Rs. {Math.round(receivable).toLocaleString("en-US")}
+            </div>
+          </div>
+          {totalAdvance > 0 && (
+            <div className="text-right bg-emerald-mint/10 border border-emerald-mint/30 rounded-xl px-3 py-1.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-mint">
+                Advance Received (+)
+              </div>
+              <div className="text-base font-black text-emerald-mint">
+                +Rs. {Math.round(totalAdvance).toLocaleString("en-US")}
+              </div>
+            </div>
+          )}
         </div>
-        <div className="text-3xl font-black text-amber-warm my-1.5 tracking-tight">
-          Rs. {Math.round(receivable).toLocaleString("en-US")}
-        </div>
-        <div className="text-xs text-slate-400">
-          {activeCustomers.length} registered customers
+        <div className="flex justify-between items-center text-xs text-slate-400 mt-1 pt-2 border-t border-slate-700/50">
+          <span>{activeCustomers.length} registered customers</span>
+          {totalAdvance > 0 && (
+            <span className="font-semibold text-slate-300">
+              Net Balance: <strong className={netKhataBalance >= 0 ? "text-amber-warm" : "text-emerald-mint"}>Rs. {Math.round(netKhataBalance).toLocaleString("en-US")}</strong>
+            </span>
+          )}
         </div>
       </div>
 
