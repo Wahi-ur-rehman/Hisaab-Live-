@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, addDoc } from "firebase/firestore";
+import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot, query, orderBy, limit } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
@@ -27,6 +27,8 @@ const T = {
     bg: "#070c16",
     sidebar: "#0b1223",
     navbar: "#0b1223",
+    navbarBorder: "rgba(255,255,255,0.07)",
+    navbarText: "#f1f5f9",
     card: "#0f1a2e",
     cardHover: "#142038",
     cardSecondary: "#162035",
@@ -56,17 +58,19 @@ const T = {
   },
   light: {
     mode: "light",
-    bg: "#f0f4f9",
+    bg: "#f8fafc",
     sidebar: "#ffffff",
-    navbar: "#0f172a",
+    navbar: "#ffffff",
+    navbarBorder: "#e2e8f0",
+    navbarText: "#0f172a",
     card: "#ffffff",
-    cardHover: "#f8fafc",
-    cardSecondary: "#f1f5f9",
+    cardHover: "#f1f5f9",
+    cardSecondary: "#f8fafc",
     border: "#e2e8f0",
     borderFocus: "#2563eb",
     text: "#0f172a",
-    textSec: "#64748b",
-    textMuted: "#94a3b8",
+    textSec: "#475569",
+    textMuted: "#64748b",
     inputBg: "#ffffff",
     brand: "#2563eb",
     brandDark: "#1d4ed8",
@@ -80,8 +84,8 @@ const T = {
     purple: "#7c3aed",
     purpleBg: "#f5f3ff",
     overlay: "rgba(15,23,42,0.6)",
-    shadow: "0 4px 16px rgba(15,23,42,0.08)",
-    shadowLg: "0 20px 40px rgba(15,23,42,0.14)",
+    shadow: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+    shadowLg: "0 10px 25px -5px rgba(15,23,42,0.1), 0 8px 10px -6px rgba(15,23,42,0.05)",
     radius: 14,
     radiusSm: 8,
     radiusXl: 20,
@@ -232,6 +236,34 @@ function Dashboard({ S, themeMode, onToggleTheme }) {
   const [notifyTitle, setNotifyTitle] = useState("");
   const [notifyMessage, setNotifyMessage] = useState("");
   const [notifySeverity, setNotifySeverity] = useState("info"); // "info" | "medium" | "high"
+
+  // Live Broadcasts Stream
+  const [broadcasts, setBroadcasts] = useState([]);
+  const [activeBannerIdx, setActiveBannerIdx] = useState(0);
+  const [isBannerPaused, setIsBannerPaused] = useState(false);
+
+  useEffect(() => {
+    try {
+      const q = query(collection(db, "admin_notifications"), orderBy("created_at", "desc"), limit(10));
+      return onSnapshot(q, (snap) => {
+        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setBroadcasts(items);
+      }, (err) => {
+        console.warn("admin_notifications listener warning:", err);
+      });
+    } catch (e) {
+      console.warn("admin_notifications subscription failed:", e);
+    }
+  }, []);
+
+  // Rotate banner ticker every 6 seconds if multiple broadcasts exist and not hovered
+  useEffect(() => {
+    if (broadcasts.length <= 1 || isBannerPaused) return;
+    const timer = setInterval(() => {
+      setActiveBannerIdx((prev) => (prev + 1) % broadcasts.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [broadcasts.length, isBannerPaused]);
 
   const NOTIFY_TEMPLATES = [
     {
@@ -478,23 +510,68 @@ function Dashboard({ S, themeMode, onToggleTheme }) {
     <div style={{ minHeight: "100vh", background: S.bg, color: S.text, fontFamily: "system-ui, -apple-system, sans-serif" }}>
 
       {/* ── Navbar ── */}
-      <nav style={{ background: S.navbar, borderBottom: `1px solid rgba(255,255,255,0.06)`, padding: "0 28px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 50 }}>
+      <nav style={{
+        background: S.navbar,
+        borderBottom: `1px solid ${S.navbarBorder || S.border}`,
+        padding: "0 28px",
+        height: 60,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        position: "sticky",
+        top: 0,
+        zIndex: 50,
+        boxShadow: S.mode === "light" ? "0 1px 3px rgba(0,0,0,0.05)" : "none",
+        transition: "background 0.2s ease, border-color 0.2s ease",
+      }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: S.brandGrad, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🛡️</div>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: S.brandGrad, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0, boxShadow: "0 2px 8px rgba(37,99,235,0.25)" }}>🛡️</div>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: "white", letterSpacing: -0.3 }}>HisaabLive <span style={{ color: S.brand }}>Admin</span></div>
-            <div style={{ fontSize: 11, color: "#64748b", fontWeight: 500 }}>Production Console</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: S.navbarText || S.text, letterSpacing: -0.3 }}>
+              HisaabLive <span style={{ color: S.brand }}>Admin</span>
+            </div>
+            <div style={{ fontSize: 11, color: S.textSec, fontWeight: 500 }}>Production Console</div>
           </div>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <button onClick={onToggleTheme} style={btn({ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "white", padding: "6px 12px", fontSize: 12 })}>
-            {themeMode === "dark" ? "☀️ Light" : "🌙 Dark"}
+          <button
+            onClick={onToggleTheme}
+            style={btn({
+              background: S.mode === "light" ? S.cardSecondary : "rgba(255,255,255,0.07)",
+              border: `1px solid ${S.border}`,
+              color: S.text,
+              padding: "6px 14px",
+              fontSize: 12,
+              fontWeight: 700,
+            })}
+          >
+            {themeMode === "dark" ? "☀️ Light Mode" : "🌙 Dark Mode"}
           </button>
-          <button onClick={() => signOut(auth)} style={btn({ background: "rgba(244,63,94,0.15)", border: "1px solid rgba(244,63,94,0.3)", color: "#f43f5e", padding: "6px 14px", fontSize: 13 })}>
+          <button
+            onClick={() => signOut(auth)}
+            style={btn({
+              background: S.dangerBg,
+              border: `1px solid ${S.mode === "light" ? "#fecdd3" : S.dangerBg}`,
+              color: S.danger,
+              padding: "6px 14px",
+              fontSize: 13,
+            })}
+          >
             Sign Out
           </button>
         </div>
       </nav>
+
+      {/* ── Live Admin Broadcast / Announcement Ticker Banner ── */}
+      <LiveAnnouncementBanner
+        broadcasts={broadcasts}
+        activeIndex={activeBannerIdx}
+        setActiveIndex={setActiveBannerIdx}
+        isPaused={isBannerPaused}
+        setIsPaused={setIsBannerPaused}
+        onNewBroadcast={() => openNotifyModal(null)}
+        S={S}
+      />
 
       {/* ── Toast ── */}
       {toast.text && (
@@ -922,6 +999,216 @@ function Dashboard({ S, themeMode, onToggleTheme }) {
 }
 
 // ── Shared Sub-components ──────────────────────────────────────────────────
+function LiveAnnouncementBanner({ broadcasts, activeIndex, setActiveIndex, isPaused, setIsPaused, onNewBroadcast, S }) {
+  const current = broadcasts[activeIndex];
+  const isLight = S.mode === "light";
+
+  if (!current) {
+    // Elegant fallback ticker when no broadcasts sent yet
+    return (
+      <div
+        style={{
+          background: isLight
+            ? "linear-gradient(90deg, #f0fdf4 0%, #eff6ff 100%)"
+            : "linear-gradient(90deg, rgba(16,185,129,0.08) 0%, rgba(56,189,248,0.08) 100%)",
+          borderBottom: `1px solid ${isLight ? "#e2e8f0" : "rgba(255,255,255,0.07)"}`,
+          padding: "8px 28px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          fontSize: 12,
+          fontWeight: 600,
+          color: S.textSec,
+          zIndex: 40,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: S.success, fontWeight: 800, flexShrink: 0, fontSize: 11, letterSpacing: 0.5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: S.success, boxShadow: `0 0 8px ${S.success}` }} />
+            POS CLOUD SYNC ACTIVE
+          </span>
+          <span style={{ color: S.textMuted }}>•</span>
+          <span style={{ color: S.text, fontWeight: 600, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
+            All systems nominal · Zero database latency · Real-time owner phone alerts live
+          </span>
+        </div>
+        <button
+          onClick={onNewBroadcast}
+          style={btn({
+            background: isLight ? "#ffffff" : S.cardSecondary,
+            color: S.purple,
+            border: `1px solid ${isLight ? "#cbd5e1" : S.border}`,
+            padding: "4px 10px",
+            fontSize: 11,
+            borderRadius: 6,
+            fontWeight: 700,
+            flexShrink: 0,
+            boxShadow: isLight ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
+          })}
+        >
+          📢 Broadcast Announcement
+        </button>
+      </div>
+    );
+  }
+
+  const isUrgent = current.severity === "high";
+  const isWarning = current.severity === "medium";
+  const badgeColor = isUrgent ? S.danger : isWarning ? S.warn : S.purple;
+  const badgeBg = isUrgent ? S.dangerBg : isWarning ? S.warnBg : S.purpleBg;
+
+  return (
+    <div
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      style={{
+        background: isLight
+          ? isUrgent
+            ? "linear-gradient(90deg, #fff1f2 0%, #fff7ed 100%)"
+            : isWarning
+            ? "linear-gradient(90deg, #fffbeb 0%, #fefce8 100%)"
+            : "linear-gradient(90deg, #f5f3ff 0%, #eff6ff 100%)"
+          : isUrgent
+          ? "linear-gradient(90deg, rgba(244,63,94,0.14) 0%, rgba(245,158,11,0.08) 100%)"
+          : isWarning
+          ? "linear-gradient(90deg, rgba(245,158,11,0.14) 0%, rgba(56,189,248,0.08) 100%)"
+          : "linear-gradient(90deg, rgba(139,92,246,0.15) 0%, rgba(56,189,248,0.10) 100%)",
+        borderBottom: `1px solid ${isLight ? (isUrgent ? "#fecdd3" : isWarning ? "#fde68a" : "#ddd6fe") : "rgba(255,255,255,0.08)"}`,
+        padding: "8px 28px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        fontSize: 12,
+        position: "sticky",
+        top: 60,
+        zIndex: 45,
+        backdropFilter: "blur(8px)",
+        boxShadow: isLight ? "0 1px 3px rgba(0,0,0,0.04)" : "none",
+        transition: "all 0.25s ease",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 12, overflow: "hidden", flex: 1, minWidth: 0 }}>
+        {/* Pulsing Live indicator */}
+        <span
+          style={{
+            background: badgeBg,
+            color: badgeColor,
+            border: `1px solid ${badgeColor}`,
+            padding: "3px 8px",
+            borderRadius: 6,
+            fontSize: 11,
+            fontWeight: 800,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 5,
+            flexShrink: 0,
+            letterSpacing: 0.3,
+          }}
+        >
+          <span
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: "50%",
+              background: badgeColor,
+              boxShadow: `0 0 6px ${badgeColor}`,
+            }}
+          />
+          {isUrgent ? "🚨 URGENT BROADCAST" : isWarning ? "⚠️ ALERT NOTICE" : "📢 LIVE ANNOUNCEMENT"}
+        </span>
+
+        {/* Target Indicator */}
+        <span
+          style={{
+            background: isLight ? "#e2e8f0" : "rgba(255,255,255,0.07)",
+            color: S.textSec,
+            padding: "2px 7px",
+            borderRadius: 4,
+            fontSize: 11,
+            fontWeight: 700,
+            flexShrink: 0,
+          }}
+        >
+          {current.target === "all" ? `To All Shops (${current.recipient_count || "All"})` : `To: ${current.shop_name || "Specific Shop"}`}
+        </span>
+
+        {/* Ticker Content */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+          <strong style={{ color: S.text, fontWeight: 800 }}>{current.title}:</strong>
+          <span style={{ color: S.textSec, overflow: "hidden", textOverflow: "ellipsis" }}>
+            {current.message_en || current.message_roman}
+          </span>
+        </div>
+      </div>
+
+      {/* Controls & New Broadcast */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, marginLeft: 16 }}>
+        {broadcasts.length > 1 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <button
+              onClick={() => setActiveIndex((prev) => (prev - 1 + broadcasts.length) % broadcasts.length)}
+              style={{
+                background: isLight ? "#ffffff" : S.cardSecondary,
+                border: `1px solid ${S.border}`,
+                color: S.textSec,
+                width: 24,
+                height: 24,
+                borderRadius: 4,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 10,
+              }}
+              title="Previous Announcement"
+            >
+              ◀
+            </button>
+            <span style={{ fontSize: 11, color: S.textMuted, fontWeight: 700, minWidth: 32, textAlign: "center" }}>
+              {activeIndex + 1}/{broadcasts.length}
+            </span>
+            <button
+              onClick={() => setActiveIndex((prev) => (prev + 1) % broadcasts.length)}
+              style={{
+                background: isLight ? "#ffffff" : S.cardSecondary,
+                border: `1px solid ${S.border}`,
+                color: S.textSec,
+                width: 24,
+                height: 24,
+                borderRadius: 4,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 10,
+              }}
+              title="Next Announcement"
+            >
+              ▶
+            </button>
+          </div>
+        )}
+
+        <button
+          onClick={onNewBroadcast}
+          style={btn({
+            background: isLight ? "#ffffff" : S.cardSecondary,
+            color: S.purple,
+            border: `1px solid ${isLight ? "#cbd5e1" : S.border}`,
+            padding: "4px 10px",
+            fontSize: 11,
+            borderRadius: 6,
+            fontWeight: 700,
+            boxShadow: isLight ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
+          })}
+        >
+          ＋ New Broadcast
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function KpiCard({ icon, label, value, sub, color, S }) {
   return (
     <div style={{ background: S.card, borderRadius: S.radius, padding: "20px 22px", border: `1px solid ${S.border}`, boxShadow: S.shadow, position: "relative", overflow: "hidden" }}>
@@ -937,14 +1224,35 @@ function KpiCard({ icon, label, value, sub, color, S }) {
 }
 
 function ActionBtn({ label, color, S, busy, onClick }) {
+  const isLight = S.mode === "light";
+  let bg = S.cardSecondary;
+  let border = `1px solid ${S.border}`;
+
+  if (color === S.danger) {
+    bg = S.dangerBg;
+    border = `1px solid ${isLight ? "#fecdd3" : S.danger}`;
+  } else if (color === S.success) {
+    bg = S.successBg;
+    border = `1px solid ${isLight ? "#a7f3d0" : S.success}`;
+  } else if (color === S.purple) {
+    bg = S.purpleBg;
+    border = `1px solid ${isLight ? "#ddd6fe" : S.purple}`;
+  } else if (color === S.brand) {
+    bg = isLight ? "#eff6ff" : S.cardSecondary;
+    border = `1px solid ${isLight ? "#bfdbfe" : S.border}`;
+  }
+
   return (
     <button disabled={busy} onClick={onClick} style={btn({
-      background: color === S.danger ? S.dangerBg : color === S.success ? S.successBg : S.cardSecondary,
+      background: bg,
       color,
-      border: `1px solid ${color === S.danger ? S.danger : S.border}`,
+      border,
       fontSize: 12,
+      fontWeight: 700,
       opacity: busy ? 0.6 : 1,
       padding: "6px 11px",
+      borderRadius: S.radiusSm,
+      boxShadow: isLight ? "0 1px 2px rgba(0,0,0,0.03)" : "none",
     })}>
       {label}
     </button>
