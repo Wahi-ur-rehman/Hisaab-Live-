@@ -445,7 +445,9 @@ function AppContent() {
     // 2. Listen to global admin announcements / broadcasts
     const qGlobal = query(collection(db, "admin_notifications"), orderBy("created_at", "desc"), limit(10));
     const unsubGlobal = onSnapshot(qGlobal, (s) => {
-      adminNotifsList = s.docs.map((d) => ({ id: d.id, ...d.data() }));
+      adminNotifsList = s.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((d) => d.stopped !== true && d.active !== false);
       mergeAndSet();
     }, (e) => console.warn("Admin notifications listener:", e));
 
