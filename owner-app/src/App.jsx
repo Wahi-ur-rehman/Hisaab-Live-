@@ -1406,10 +1406,10 @@ function ReportsTabContent({
     return { ...cat, total, count: catItems.length };
   });
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     setDownloading(true);
     try {
-      generateMonthlyPdf({
+      await generateMonthlyPdf({
         shopName: shop ? shop.shop_name : "Al-Madina General Store",
         shopCode: shop ? shop.shop_code : "G10",
         month: ym,
@@ -1982,16 +1982,16 @@ function ExpenseDetailModal({ today, expenses, shopId, T, isDemo, onDeleteExpens
 // ---------------------------------------------------------------------------
 // Monthly Statement PDF Generator (jsPDF)
 // ---------------------------------------------------------------------------
-function generateMonthlyPdf({
+async function generateMonthlyPdf({
   shopName,
   shopCode,
   month,
-  sale,
-  expense,
-  profit,
-  margin,
-  catBreakdown,
-  items,
+  sale = 0,
+  expense = 0,
+  profit = 0,
+  margin = "0.0",
+  catBreakdown = [],
+  items = [],
   customers = [],
 }) {
   const cleanAscii = (str, fallback = "") => {
@@ -2035,7 +2035,7 @@ function generateMonthlyPdf({
   doc.setFontSize(8.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(203, 213, 225);
-  doc.text(`Shop Code: ${(shopCode || "G10").toUpperCase()} • Statement Month: ${month}`, pageWidth - marginX, 18, { align: "right" });
+  doc.text(`Shop Code: ${(shopCode || "G10").toUpperCase()} - Statement Month: ${month}`, pageWidth - marginX, 18, { align: "right" });
 
   y = 35;
 
@@ -2043,14 +2043,19 @@ function generateMonthlyPdf({
   doc.setTextColor(15, 23, 42);
   doc.setFontSize(13);
   doc.setFont("helvetica", "bold");
-  doc.text(`Monthly Financial & Kharcha Statement — ${month}`, marginX, y);
+  doc.text(`Monthly Financial & Kharcha Statement - ${month}`, marginX, y);
 
   y += 5;
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100, 116, 139);
-  const nowStr = new Date().toLocaleString("en-US", { timeZone: "Asia/Karachi" });
-  doc.text(`Generated on: ${nowStr} (Pakistan Standard Time) • Permanent Surveillance Ledger`, marginX, y);
+  let nowStr = "";
+  try {
+    nowStr = new Date().toLocaleString("en-US", { timeZone: "Asia/Karachi" });
+  } catch (_) {
+    nowStr = new Date().toLocaleString("en-US");
+  }
+  doc.text(`Generated on: ${nowStr} (Pakistan Standard Time) - Permanent Surveillance Ledger`, marginX, y);
 
   y += 8;
 
@@ -2200,7 +2205,7 @@ function generateMonthlyPdf({
   doc.setFontSize(8.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(203, 213, 225);
-  doc.text(`Shop Code: ${(shopCode || "G10").toUpperCase()} • Full Credit & Advance Audit`, pageWidth - marginX, 18, { align: "right" });
+  doc.text(`Shop Code: ${(shopCode || "G10").toUpperCase()} - Full Credit & Advance Audit`, pageWidth - marginX, 18, { align: "right" });
 
   y = 35;
 
@@ -2219,8 +2224,9 @@ function generateMonthlyPdf({
   y += 8;
 
   // Calculate Ledger Statistics
-  const totalReceivable = customers.reduce((acc, c) => acc + (c.balance > 0 ? Number(c.balance) : 0), 0);
-  const totalAdvancePaid = customers.reduce((acc, c) => acc + (c.balance < 0 ? Math.abs(Number(c.balance)) : 0), 0);
+  const custList = Array.isArray(customers) ? customers : [];
+  const totalReceivable = custList.reduce((acc, c) => acc + (Number(c?.balance) > 0 ? Number(c.balance) : 0), 0);
+  const totalAdvancePaid = custList.reduce((acc, c) => acc + (Number(c?.balance) < 0 ? Math.abs(Number(c.balance)) : 0), 0);
   const netLedger = totalReceivable - totalAdvancePaid;
 
   // Ledger KPI Cards
@@ -2254,7 +2260,7 @@ function generateMonthlyPdf({
   doc.setFontSize(10.5);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(15, 23, 42);
-  doc.text(`Customer Ledger Accounts (${customers.length} Registered Accounts)`, marginX, y);
+  doc.text(`Customer Ledger Accounts (${custList.length} Registered Accounts)`, marginX, y);
   y += 4;
 
   // Table Header
@@ -2269,7 +2275,7 @@ function generateMonthlyPdf({
   doc.text("Balance / Amount (PKR)", pageWidth - marginX - 4, y + 4.2, { align: "right" });
   y += 6.5;
 
-  if (customers.length === 0) {
+  if (custList.length === 0) {
     doc.setFontSize(8.5);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(148, 163, 184);
@@ -2277,7 +2283,7 @@ function generateMonthlyPdf({
     y += 10;
   } else {
     // Sort by largest balance first
-    const sortedCustomers = [...customers].sort((a, b) => (b.balance || 0) - (a.balance || 0));
+    const sortedCustomers = [...custList].sort((a, b) => (Number(b?.balance) || 0) - (Number(a?.balance) || 0));
 
     sortedCustomers.forEach((cust) => {
       if (y > 270) {
@@ -2296,18 +2302,18 @@ function generateMonthlyPdf({
         y += 6.5;
       }
 
-      const balNum = Number(cust.balance || 0);
+      const balNum = Number(cust?.balance || 0);
       const isOwed = balNum > 0;
       const isAdv = balNum < 0;
 
       doc.setFontSize(8);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(30, 41, 59);
-      doc.text(cleanAscii(cust.name, "Customer").slice(0, 36), marginX + 4, y + 4.2);
+      doc.text(cleanAscii(cust?.name, "Customer").slice(0, 36), marginX + 4, y + 4.2);
 
       doc.setFont("helvetica", "normal");
       doc.setTextColor(100, 116, 139);
-      doc.text(cust.phone || "-", marginX + 65, y + 4.2);
+      doc.text(cust?.phone || "-", marginX + 65, y + 4.2);
 
       // Status Badge
       if (isOwed) {
@@ -2350,12 +2356,68 @@ function generateMonthlyPdf({
     doc.setFontSize(7.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(148, 163, 184);
-    doc.text("HisaabLive Verified Statement • Powered by AI Surveillance & Tamper Guard", marginX, pageHeight - 8);
+    doc.text("HisaabLive Verified Statement - Powered by AI Surveillance & Tamper Guard", marginX, pageHeight - 8);
     doc.text(`Page ${p} of ${totalPages}`, pageWidth - marginX, pageHeight - 8, { align: "right" });
   }
 
   const safeCode = (shopCode || "G10").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  doc.save(`HisaabLive-Statement-${safeCode}-${month}.pdf`);
+  const fileName = `HisaabLive-Statement-${safeCode}-${month}.pdf`;
+  const pdfBlob = doc.output("blob");
+
+  // 1. Mobile Web Share API: If supported, opens native Android/iOS share sheet (Save to Files/Drive/WhatsApp)
+  if (typeof navigator !== "undefined" && navigator.canShare && typeof File !== "undefined") {
+    try {
+      const file = new File([pdfBlob], fileName, { type: "application/pdf" });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: fileName,
+          text: `HisaabLive Monthly Statement - ${month}`,
+          files: [file],
+        });
+        return;
+      }
+    } catch (shareErr) {
+      if (shareErr.name === "AbortError") {
+        return;
+      }
+      console.warn("navigator.share failed, trying fallback:", shareErr);
+    }
+  }
+
+  // 2. Direct Anchor Download with ObjectURL (Standard browser download)
+  let downloadTriggered = false;
+  try {
+    const blobUrl = URL.createObjectURL(pdfBlob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = fileName;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    downloadTriggered = true;
+    setTimeout(() => {
+      try {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+      } catch (_) {}
+    }, 4000);
+  } catch (linkErr) {
+    console.warn("Anchor download failed:", linkErr);
+  }
+
+  // 3. Fallback: doc.save
+  if (!downloadTriggered) {
+    try {
+      doc.save(fileName);
+    } catch (saveErr) {
+      console.warn("doc.save failed:", saveErr);
+      try {
+        const dataUri = doc.output("datauristring");
+        window.open(dataUri, "_blank");
+      } catch (_) {}
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -2418,10 +2480,10 @@ function MonthlyStatementModal({
     ? items
     : items.filter((e) => e.category === selectedCat);
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     setDownloading(true);
     try {
-      generateMonthlyPdf({
+      await generateMonthlyPdf({
         shopName: shop ? shop.shop_name : "Al-Madina General Store",
         shopCode: shop ? shop.shop_code : "G10",
         month: ym,
@@ -2437,7 +2499,7 @@ function MonthlyStatementModal({
       console.error(err);
       alert("Error generating PDF: " + (err.message || err));
     } finally {
-      setTimeout(() => setDownloading(false), 500);
+      setDownloading(false);
     }
   };
 
