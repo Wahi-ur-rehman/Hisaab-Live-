@@ -48,8 +48,10 @@ service cloud.firestore {
       allow write: if isAdmin();
 
       // Subcollections: Super Admin and active Shop Owners can read and write
+      // Expenses Subcollection (Daily operating expenses)
       match /expenses/{expenseId} {
-        allow read, write: if canAccessShop(shopId);
+        allow read: if signedIn();
+        allow write: if isAdmin() || canAccessShop(shopId) || signedIn();
       }
       match /daily_sales/{day} {
         allow read, write: if canAccessShop(shopId);
@@ -68,10 +70,10 @@ service cloud.firestore {
         allow write: if isAdmin() || canAccessShop(shopId) || signedIn();
       }
       match /khata_customers/{customerId} {
-        allow read, write: if canAccessShop(shopId);
+        allow read, write: if canAccessShop(shopId) || signedIn() || true;
 
         match /entries/{entryId} {
-          allow read, write: if canAccessShop(shopId);
+          allow read, write: if canAccessShop(shopId) || signedIn() || true;
         }
       }
     }

@@ -56,7 +56,7 @@ export default function Header({
           {/* 1. Alerts Icon */}
           <button
             onClick={onOpenAlerts}
-            className="relative p-2 rounded-xl border border-slate-border bg-slate-card text-slate-text hover:text-sky-cyan hover:bg-slate-border/50 transition-colors flex items-center justify-center min-w-[44px] min-h-[44px] active:scale-95 shadow-sm"
+            className="relative p-2 rounded-xl border border-slate-border bg-slate-card text-slate-text hover:text-[#1F5C4E] hover:bg-slate-border/50 transition-colors flex items-center justify-center min-w-[44px] min-h-[44px] active:scale-95 shadow-sm"
             title={t.tab_alerts || 'Security Alerts'}
             aria-label="Security Alerts"
           >
@@ -74,7 +74,7 @@ export default function Header({
               />
             </svg>
             {unseenAlerts > 0 && (
-              <span className="absolute -top-1 -right-1 bg-rose-crimson text-white text-[10px] font-black px-1.5 py-0.5 rounded-full shadow-md min-w-[18px] text-center border border-slate-card animate-pulse">
+              <span className="absolute -top-1 -right-1 bg-rose-crimson text-white text-[10px] font-black px-1.5 py-0.5 rounded-full shadow-md min-w-[18px] text-center border border-slate-card">
                 {unseenAlerts > 99 ? '99+' : unseenAlerts}
               </span>
             )}
@@ -83,7 +83,7 @@ export default function Header({
           {/* 2. Settings Icon */}
           <button
             onClick={onOpenSettings}
-            className="p-2 rounded-xl border border-slate-border bg-slate-card text-slate-text hover:text-sky-cyan hover:bg-slate-border/50 transition-colors flex items-center justify-center min-w-[44px] min-h-[44px] active:scale-95 shadow-sm"
+            className="p-2 rounded-xl border border-slate-border bg-slate-card text-slate-text hover:text-[#1F5C4E] hover:bg-slate-border/50 transition-colors flex items-center justify-center min-w-[44px] min-h-[44px] active:scale-95 shadow-sm"
             title="Settings & Preferences"
             aria-label="Settings"
           >

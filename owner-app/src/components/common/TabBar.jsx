@@ -10,7 +10,7 @@ const TABS = [
     icon: (isActive) => (
       <svg
         className={`w-5 h-5 transition-transform duration-150 ${
-          isActive ? 'scale-110 text-sky-cyan' : 'text-slate-muted'
+          isActive ? 'scale-105 text-[#1F5C4E]' : 'text-slate-muted'
         }`}
         fill="none"
         viewBox="0 0 24 24"
@@ -33,7 +33,7 @@ const TABS = [
     icon: (isActive) => (
       <svg
         className={`w-5 h-5 transition-transform duration-150 ${
-          isActive ? 'scale-110 text-sky-cyan' : 'text-slate-muted'
+          isActive ? 'scale-105 text-[#1F5C4E]' : 'text-slate-muted'
         }`}
         fill="none"
         viewBox="0 0 24 24"
@@ -56,7 +56,7 @@ const TABS = [
     icon: (isActive) => (
       <svg
         className={`w-5 h-5 transition-transform duration-150 ${
-          isActive ? 'scale-110 text-sky-cyan' : 'text-slate-muted'
+          isActive ? 'scale-105 text-[#1F5C4E]' : 'text-slate-muted'
         }`}
         fill="none"
         viewBox="0 0 24 24"
@@ -79,7 +79,7 @@ const TABS = [
     icon: (isActive) => (
       <svg
         className={`w-5 h-5 transition-transform duration-150 ${
-          isActive ? 'scale-110 text-sky-cyan' : 'text-slate-muted'
+          isActive ? 'scale-105 text-[#1F5C4E]' : 'text-slate-muted'
         }`}
         fill="none"
         viewBox="0 0 24 24"
@@ -125,7 +125,7 @@ export default function TabBar({
             >
               {/* Active Accent Indicator Bar */}
               {isActive && (
-                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-sky-cyan shadow-[0_0_8px_rgba(56,189,248,0.6)]" />
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-[#1F5C4E]" />
               )}
 
               {/* Icon */}
@@ -137,8 +137,8 @@ export default function TabBar({
               <span
                 className={`text-[11px] leading-tight truncate max-w-full tracking-tight transition-colors ${
                   isActive
-                    ? 'text-sky-cyan font-bold'
-                    : 'text-slate-muted group-hover:text-sky-cyan font-medium'
+                    ? 'text-[#1F5C4E] font-bold'
+                    : 'text-slate-muted group-hover:text-[#1F5C4E] font-medium'
                 }`}
               >
                 {label}

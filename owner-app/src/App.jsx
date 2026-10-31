@@ -32,13 +32,13 @@ const call = (name, data) => httpsCallable(fns, name)(data).then((r) => r.data);
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || "";
 const CATS = [
-  { name: "Chai / Pani", icon: "☕", color: "#f97316" },
-  { name: "Bijli / Bills", icon: "⚡", color: "#f59e0b" },
-  { name: "Staff / Tankhwa", icon: "👥", color: "#3b82f6" },
-  { name: "Dukaan Kiraya", icon: "🏢", color: "#8b5cf6" },
-  { name: "Transport / Rickshaw", icon: "🛺", color: "#06b6d4" },
-  { name: "Maintenance", icon: "🔧", color: "#ec4899" },
-  { name: "Other", icon: "📦", color: "#64748b" },
+  { name: "Chai / Pani", color: "#64748b" },
+  { name: "Bijli / Bills", color: "#64748b" },
+  { name: "Staff / Tankhwa", color: "#64748b" },
+  { name: "Dukaan Kiraya", color: "#64748b" },
+  { name: "Transport / Rickshaw", color: "#64748b" },
+  { name: "Maintenance", color: "#64748b" },
+  { name: "Other", color: "#64748b" },
 ];
 
 const SUPPORT_WA = import.meta.env.VITE_SUPPORT_WA || "https://wa.me/923229772869";
@@ -49,60 +49,65 @@ const todayPK = () =>
 const LOGIN_ERRORS = ["functions/unauthenticated", "functions/resource-exhausted", "functions/invalid-argument"];
 
 // ---- Eye-Friendly Dynamic Theme System ----
+// Neutrals + One Accent (#1F5C4E), 1px border, radius 12, 4 font sizes (12, 14, 20, 32), grid spacing (4, 8, 16, 24, 32)
 const THEMES = {
   dark: {
     mode: "dark",
-    bg: "#0b0f19", // Deep soothing obsidian navy (zero glare)
-    card: "#131d31", // Soft midnight slate
-    cardSecondary: "#1a2742",
-    border: "#223354",
+    bg: "#090d16",
+    card: "#0f172a",
+    cardSecondary: "#131d31",
+    border: "#1e293b",
     text: "#f8fafc",
     textMuted: "#94a3b8",
     textLight: "#64748b",
-    inputBg: "#0c1322",
-    primary: "#f43f5e", // Rose crimson
-    primaryDark: "#be123c",
-    primaryLight: "rgba(244,63,94,0.15)",
-    primaryGradient: "linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)",
-    heroGradient: "linear-gradient(135deg, #10192d 0%, #1a2744 60%, #24355a 100%)",
+    inputBg: "#0a0f1b",
+    primary: "#1F5C4E",
+    primaryDark: "#17463b",
+    primaryLight: "rgba(31, 92, 78, 0.16)",
+    primaryGradient: "#1F5C4E",
+    heroGradient: "#0f172a",
+    accent: "#1F5C4E",
+    accentLight: "rgba(31, 92, 78, 0.16)",
     success: "#10b981",
     warn: "#f59e0b",
-    danger: "#ef4444",
-    purple: "#a855f7",
-    purpleLight: "rgba(168,85,247,0.15)",
-    radiusXl: 22,
-    radius: 16,
-    radiusSm: 10,
-    shadowSm: "0 2px 8px rgba(0,0,0,0.4)",
-    shadowMd: "0 10px 25px -5px rgba(0,0,0,0.55)",
-    shadowLg: "0 20px 35px -10px rgba(0,0,0,0.7)",
+    danger: "#f43f5e",
+    purple: "#1F5C4E",
+    purpleLight: "rgba(31, 92, 78, 0.16)",
+    radiusXl: 12,
+    radius: 12,
+    radiusSm: 8,
+    shadowSm: "none",
+    shadowMd: "none",
+    shadowLg: "none",
   },
   light: {
     mode: "light",
-    bg: "#eef2f6", // Soft gentle warm slate (soothing, not harsh white)
+    bg: "#f8fafc",
     card: "#ffffff",
-    cardSecondary: "#f8fafc",
-    border: "#cbd5e1",
+    cardSecondary: "#f1f5f9",
+    border: "#e2e8f0",
     text: "#0f172a",
     textMuted: "#64748b",
     textLight: "#94a3b8",
     inputBg: "#ffffff",
-    primary: "#e11d48",
-    primaryDark: "#9f1239",
-    primaryLight: "#fff1f2",
-    primaryGradient: "linear-gradient(135deg, #e11d48 0%, #be123c 100%)",
-    heroGradient: "linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #334155 100%)",
+    primary: "#1F5C4E",
+    primaryDark: "#17463b",
+    primaryLight: "rgba(31, 92, 78, 0.08)",
+    primaryGradient: "#1F5C4E",
+    heroGradient: "#ffffff",
+    accent: "#1F5C4E",
+    accentLight: "rgba(31, 92, 78, 0.08)",
     success: "#059669",
     warn: "#d97706",
     danger: "#dc2626",
-    purple: "#7c3aed",
-    purpleLight: "#f5f3ff",
-    radiusXl: 22,
-    radius: 16,
-    radiusSm: 10,
-    shadowSm: "0 2px 4px rgba(15,23,42,0.05)",
-    shadowMd: "0 10px 25px -5px rgba(15,23,42,0.08)",
-    shadowLg: "0 20px 30px -10px rgba(15,23,42,0.12)",
+    purple: "#1F5C4E",
+    purpleLight: "rgba(31, 92, 78, 0.08)",
+    radiusXl: 12,
+    radius: 12,
+    radiusSm: 8,
+    shadowSm: "none",
+    shadowMd: "none",
+    shadowLg: "none",
   },
 };
 
@@ -170,7 +175,7 @@ const DEMO_ALERTS_INITIAL = [
   {
     id: "a0",
     type: "admin_notification",
-    title: "📢 System Update & Support Announcement",
+    title: "System Update & Support Announcement",
     severity: "info",
     day: todayPK(),
     seen: false,
@@ -426,7 +431,7 @@ function AppContent() {
           const item = change.doc.data();
           if (!item.seen && typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
             try {
-              const title = item.title || (item.type === "admin_notification" ? "📢 HisaabLive Announcement" : "🚨 HisaabLive Alert");
+              const title = item.title || (item.type === "admin_notification" ? "HisaabLive Announcement" : "HisaabLive Alert");
               const body = item.message_en || item.message_roman || "You have a new alert.";
               new Notification(title, {
                 body,
@@ -636,61 +641,60 @@ function AppContent() {
             <button
               onClick={toggleTheme}
               style={{
-                background: T.card, border: `1.5px solid ${T.border}`, borderRadius: 20,
-                padding: "8px 14px", color: T.text, fontSize: 13, fontWeight: 700,
+                background: T.card, border: `1px solid ${T.border}`, borderRadius: T.radius,
+                padding: "8px 14px", color: T.text, fontSize: 12, fontWeight: 700,
                 cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
-                boxShadow: T.shadowSm,
               }}
             >
-              <span>{themeMode === "dark" ? "☀️ Light Mode" : "🌙 Dark Mode"}</span>
+              <span>{themeMode === "dark" ? "Light Mode" : "Dark Mode"}</span>
             </button>
           </div>
 
           <div style={{
-            background: T.card, borderRadius: T.radiusXl, padding: "36px 30px",
-            width: "100%", maxWidth: 390, boxShadow: T.shadowLg, border: `1px solid ${T.border}`,
+            background: T.card, borderRadius: T.radius, padding: "32px 24px",
+            width: "100%", maxWidth: 390, border: `1px solid ${T.border}`,
           }}>
             {/* Header Brand */}
-            <div style={{ textAlign: "center", marginBottom: 28 }}>
+            <div style={{ textAlign: "center", marginBottom: 24 }}>
               <div style={{
-                width: 70, height: 70, borderRadius: 22, background: T.primaryGradient,
+                width: 56, height: 56, borderRadius: T.radius, background: "#1F5C4E",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                margin: "0 auto 16px", fontSize: 34, boxShadow: "0 10px 24px rgba(244,63,94,0.35)",
-                color: "white",
+                margin: "0 auto 16px", fontSize: 20, fontWeight: 900,
+                color: "white", border: `1px solid ${T.border}`,
               }}>
-                💰
+                HL
               </div>
-              <h2 style={{ margin: 0, color: T.text, fontSize: 26, fontWeight: 900, letterSpacing: -0.5 }}>
-                Hisaab<span style={{ color: T.primary }}>Live</span>
+              <h2 style={{ margin: 0, color: T.text, fontSize: 20, fontWeight: 900, letterSpacing: -0.5 }}>
+                Hisaab<span style={{ color: "#1F5C4E" }}>Live</span>
               </h2>
-              <p style={{ margin: "4px 0 0", color: T.textMuted, fontSize: 14, fontWeight: 500 }}>
+              <p style={{ margin: "4px 0 0", color: T.textMuted, fontSize: 12, fontWeight: 500 }}>
                 Smart POS & Khata for Pakistani Shops
               </p>
             </div>
 
             {/* Stepper Bar */}
-            <div style={{ display: "flex", gap: 6, marginBottom: 24 }}>
-              <div style={{ flex: 1, height: 4, borderRadius: 2, background: T.primary }} />
-              <div style={{ flex: 1, height: 4, borderRadius: 2, background: loginStep === 2 ? T.primary : T.border }} />
+            <div style={{ display: "flex", gap: 4, marginBottom: 24 }}>
+              <div style={{ flex: 1, height: 3, borderRadius: 2, background: "#1F5C4E" }} />
+              <div style={{ flex: 1, height: 3, borderRadius: 2, background: loginStep === 2 ? "#1F5C4E" : T.border }} />
             </div>
 
             {err && (
-              <div style={{ background: T.mode === "dark" ? "rgba(239,68,68,0.15)" : "#fff1f2", border: `1px solid ${T.primary}`, borderRadius: T.radiusSm, padding: "12px 14px", marginBottom: 16, color: T.primary, fontSize: 13, lineHeight: 1.4 }}>
-                ⚠️ {err}
+              <div style={{ background: T.mode === "dark" ? "rgba(239,68,68,0.15)" : "#fff1f2", border: `1px solid ${T.danger}`, borderRadius: T.radius, padding: "10px 14px", marginBottom: 16, color: T.danger, fontSize: 12, lineHeight: 1.4 }}>
+                {err}
               </div>
             )}
 
             {/* STEP 1: Shop Code */}
             {loginStep === 1 && (
               <form onSubmit={handleVerifyCode}>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 6 }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 6 }}>
                   Shop Code or Phone Number
                 </label>
                 <input
                   style={{
-                    width: "100%", padding: "14px 16px", borderRadius: T.radiusSm,
-                    border: `1.5px solid ${T.border}`, fontSize: 16, outline: "none",
-                    marginBottom: 14, background: T.inputBg, color: T.text, fontWeight: 600,
+                    width: "100%", padding: "12px 14px", borderRadius: T.radius,
+                    border: `1px solid ${T.border}`, fontSize: 14, outline: "none",
+                    marginBottom: 16, background: T.inputBg, color: T.text, fontWeight: 600,
                   }}
                   placeholder="e.g. G10 or 03001234567"
                   value={code}
@@ -701,10 +705,9 @@ function AppContent() {
                   type="submit"
                   disabled={busy}
                   style={{
-                    width: "100%", padding: "15px", borderRadius: T.radiusSm,
-                    background: T.primaryGradient, color: "white", border: "none",
-                    fontSize: 16, fontWeight: 700, cursor: "pointer",
-                    boxShadow: "0 4px 14px rgba(244,63,94,0.3)",
+                    width: "100%", minHeight: 44, padding: "12px", borderRadius: T.radius,
+                    background: "#1F5C4E", color: "white", border: "none",
+                    fontSize: 14, fontWeight: 700, cursor: "pointer",
                   }}
                 >
                   {busy ? "Checking Code..." : "Continue →"}
@@ -717,30 +720,30 @@ function AppContent() {
               <form onSubmit={handlePinLogin}>
                 <div style={{
                   display: "flex", justifyContent: "space-between", alignItems: "center",
-                  background: T.cardSecondary, padding: "10px 14px", borderRadius: T.radiusSm,
+                  background: T.cardSecondary, padding: "10px 14px", borderRadius: T.radius,
                   marginBottom: 16, border: `1px solid ${T.border}`,
                 }}>
                   <div>
                     <span style={{ fontSize: 11, color: T.textMuted, display: "block", textTransform: "uppercase", fontWeight: 700 }}>Shop</span>
-                    <b style={{ color: T.text, fontSize: 15 }}>{code.trim().toUpperCase()}</b>
+                    <b style={{ color: T.text, fontSize: 14 }}>{code.trim().toUpperCase()}</b>
                   </div>
                   <button
                     type="button"
                     onClick={() => { setLoginStep(1); setPin(""); setErr(""); }}
-                    style={{ background: "none", border: "none", color: T.primary, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+                    style={{ background: "none", border: "none", color: "#1F5C4E", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                   >
                     Change
                   </button>
                 </div>
 
-                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 6 }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 6 }}>
                   Enter 6-Digit PIN
                 </label>
                 <input
                   style={{
-                    width: "100%", padding: "14px 16px", borderRadius: T.radiusSm,
-                    border: `1.5px solid ${T.border}`, fontSize: 24, outline: "none",
-                    marginBottom: 14, background: T.inputBg, color: T.text, letterSpacing: 8,
+                    width: "100%", padding: "12px 14px", borderRadius: T.radius,
+                    border: `1px solid ${T.border}`, fontSize: 20, outline: "none",
+                    marginBottom: 16, background: T.inputBg, color: T.text, letterSpacing: 8,
                     textAlign: "center", fontWeight: 800,
                   }}
                   placeholder="••••••"
@@ -756,10 +759,9 @@ function AppContent() {
                   type="submit"
                   disabled={busy || pin.length !== 6}
                   style={{
-                    width: "100%", padding: "15px", borderRadius: T.radiusSm,
-                    background: T.primaryGradient, color: "white", border: "none",
-                    fontSize: 16, fontWeight: 700, cursor: "pointer",
-                    boxShadow: "0 4px 14px rgba(244,63,94,0.3)",
+                    width: "100%", minHeight: 44, padding: "12px", borderRadius: T.radius,
+                    background: "#1F5C4E", color: "white", border: "none",
+                    fontSize: 14, fontWeight: 700, cursor: "pointer",
                     opacity: (busy || pin.length !== 6) ? 0.6 : 1,
                   }}
                 >
@@ -780,16 +782,15 @@ function AppContent() {
               type="button"
               onClick={launchDemoMode}
               style={{
-                width: "100%", padding: "14px", borderRadius: T.radiusSm,
-                background: "transparent", color: T.primary, border: `2px solid ${T.primary}`,
-                fontSize: 15, fontWeight: 700, cursor: "pointer",
+                width: "100%", minHeight: 44, padding: "12px", borderRadius: T.radius,
+                background: "transparent", color: "#1F5C4E", border: `1px solid #1F5C4E`,
+                fontSize: 14, fontWeight: 700, cursor: "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
               }}
             >
-              <span>✨</span>
               <span>Try Demo Mode (Quick Preview)</span>
             </button>
-            <p style={{ textAlign: "center", fontSize: 12, color: T.textMuted, margin: "10px 0 0", lineHeight: 1.4 }}>
+            <p style={{ textAlign: "center", fontSize: 12, color: T.textMuted, margin: "8px 0 0", lineHeight: 1.4 }}>
               Test all dashboard features with mock data.
             </p>
           </div>
@@ -805,16 +806,16 @@ function AppContent() {
         <style>{globalStyle}</style>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: T.bg, padding: 20 }}>
           <div style={{ textAlign: "center", color: T.textMuted }}>
-            <div style={{ width: 64, height: 64, borderRadius: "50%", background: T.primaryGradient, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontSize: 32, boxShadow: T.shadowMd }}>
-              ⚡
+            <div style={{ width: 56, height: 56, borderRadius: T.radius, background: "#1F5C4E", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontSize: 20, fontWeight: 900, color: "white" }}>
+              HL
             </div>
-            <p style={{ fontWeight: 700, fontSize: 16, color: T.text, margin: 0 }}>HisaabLive</p>
-            <p style={{ fontSize: 13, color: T.textMuted, margin: "6px 0 16px" }}>Connecting to shop...</p>
+            <p style={{ fontWeight: 700, fontSize: 14, color: T.text, margin: 0 }}>HisaabLive</p>
+            <p style={{ fontSize: 12, color: T.textMuted, margin: "4px 0 16px" }}>Connecting to shop...</p>
             <button
               onClick={logout}
               style={{
-                background: T.cardSecondary, color: T.text, border: `1.5px solid ${T.border}`,
-                borderRadius: T.radiusSm, padding: "8px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer"
+                background: T.cardSecondary, color: T.text, border: `1px solid ${T.border}`,
+                borderRadius: T.radius, padding: "8px 16px", minHeight: 44, fontSize: 12, fontWeight: 700, cursor: "pointer"
               }}
             >
               Back to Login
@@ -1057,7 +1058,7 @@ function AppContent() {
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 20 }}>🔔</span>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#1F5C4E" }} />
                   <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: T.text }}>
                     {t.alerts_title || "POS Activity & Security Alerts"}
                   </h3>
@@ -1135,7 +1136,7 @@ function AppContent() {
           confirmText={t.logout_all || "Logout All Devices"}
           cancelText={t.cancel || "Cancel"}
           isDestructive={true}
-          icon="🚪"
+          icon={null}
           onClose={() => setShowLogoutAllSheet(false)}
           onConfirm={handleConfirmLogoutAll}
         />
@@ -1217,23 +1218,23 @@ function ExpensesTabContent({
   return (
     <div>
       {/* Header Summary Card */}
-      <div className="rounded-2xl bg-slate-card border border-slate-border p-4 shadow-sm mb-4">
+      <div className="rounded-xl bg-slate-card border border-slate-border p-4 mb-4">
         <div className="flex justify-between items-center mb-3">
           <div>
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">
               {t.total_expense || "Today's Expenses"}
             </span>
-            <div className="text-2xl font-black text-rose-crimson mt-0.5">
+            <div className="text-xl font-black text-rose-crimson mt-0.5">
               Rs. {Number(total).toLocaleString()}
             </div>
           </div>
           <button
             type="button"
             onClick={() => setShowAddForm((prev) => !prev)}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 ${
               showAddForm
                 ? "bg-slate-800 text-slate-300 border border-slate-700"
-                : "bg-sky-cyan text-slate-950 hover:bg-sky-cyan/90 shadow-sky-cyan/20"
+                : "bg-[#1F5C4E] text-white hover:bg-[#1F5C4E]/90"
             }`}
           >
             {showAddForm ? (t.close || "Close Form") : (t.add_expense || "+ Add Expense")}
@@ -1251,8 +1252,8 @@ function ExpensesTabContent({
                 onClick={() => setSelectedCat(cat)}
                 className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap active:scale-95 flex items-center gap-1.5 ${
                   isSelected
-                    ? "bg-sky-cyan text-slate-950 shadow-sm shadow-sky-cyan/25"
-                    : "bg-slate-800/80 text-slate-300 border border-slate-700/60 hover:border-slate-500"
+                    ? "bg-[#1F5C4E] text-white"
+                    : "bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-500"
                 }`}
               >
                 {cat === "All" ? (t.all_categories || "All") : cat}
@@ -1278,7 +1279,7 @@ function ExpensesTabContent({
       )}
 
       {/* Expenses List */}
-      <div className="rounded-2xl bg-slate-card border border-slate-border p-4 shadow-sm">
+      <div className="rounded-xl bg-slate-card border border-slate-border p-4">
         <div className="text-sm font-bold text-slate-100 mb-3 flex items-center justify-between">
           <span>{selectedCat === "All" ? (t.today_expenses || "Today's Expenses") : selectedCat}</span>
           <span className="text-xs text-slate-400 font-medium">({filteredItems.length})</span>
@@ -1293,14 +1294,14 @@ function ExpensesTabContent({
             {filteredItems.map((item) => (
               <div
                 key={item.id}
-                className="flex justify-between items-center p-3 rounded-xl bg-slate-800/40 border border-slate-700/50 hover:border-slate-600 transition-all"
+                className="flex justify-between items-center p-3 min-h-[44px] rounded-xl bg-slate-800/40 border border-slate-700/50 hover:border-slate-600 transition-all"
               >
                 <div className="min-w-0 flex-1 mr-3">
                   <div className="font-bold text-sm text-slate-100 truncate">
                     {item.title}
                   </div>
                   <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2">
-                    <span className="inline-block px-2 py-0.5 rounded-md bg-slate-800 text-[11px] font-medium text-slate-300 border border-slate-700/50">
+                    <span className="inline-block px-2 py-0.5 rounded-md bg-slate-800 text-xs font-medium text-slate-300 border border-slate-700/50">
                       {item.category || "Other"}
                     </span>
                     {item.time && <span>• {item.time}</span>}
@@ -1315,9 +1316,9 @@ function ExpensesTabContent({
                     onClick={(e) => handleDeletePrompt(e, item)}
                     disabled={deletingId === item.id}
                     title="Delete Expense"
-                    className="w-8 h-8 rounded-lg bg-rose-crimson/10 border border-rose-crimson/30 text-rose-crimson hover:bg-rose-crimson/20 active:scale-90 flex items-center justify-center text-xs transition-all disabled:opacity-40"
+                    className="px-2 py-1 rounded-lg bg-rose-crimson/10 border border-rose-crimson/30 text-rose-crimson hover:bg-rose-crimson/20 active:scale-90 flex items-center justify-center text-xs font-bold transition-all disabled:opacity-40"
                   >
-                    {deletingId === item.id ? "..." : "🗑️"}
+                    {deletingId === item.id ? "..." : "Del"}
                   </button>
                 </div>
               </div>
@@ -1431,58 +1432,57 @@ function ReportsTabContent({
   return (
     <div>
       {/* Month Header & Download Action */}
-      <div className="rounded-2xl bg-slate-card border border-slate-border p-4 shadow-sm mb-4">
+      <div className="rounded-xl bg-slate-card border border-slate-border p-4 mb-4">
         <div className="flex justify-between items-center mb-3">
           <div>
-            <h3 className="text-base font-bold text-slate-100 m-0">
+            <h3 className="text-sm font-bold text-slate-100 m-0">
               {t.month_title || "This Month Summary"}
             </h3>
-            <span className="text-xs text-slate-400 font-semibold">{ym}</span>
+            <span className="text-xs text-slate-400 font-medium">{ym}</span>
           </div>
           <button
             type="button"
             onClick={handleDownloadPdf}
             disabled={downloading}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-sky-cyan text-slate-950 hover:bg-sky-cyan/90 transition-all active:scale-95 shadow-sm shadow-sky-cyan/25 flex items-center gap-1.5 disabled:opacity-50"
+            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-[#1F5C4E] text-white hover:bg-[#1F5C4E]/90 transition-all active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
           >
-            <span>📄</span>
             <span>{downloading ? "Preparing..." : (t.download_pdf || "Download PDF")}</span>
           </button>
         </div>
 
         {/* Metrics Grid */}
-        <div className="grid grid-cols-2 gap-2.5 mb-3">
+        <div className="grid grid-cols-2 gap-2 mb-3">
           <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/60">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">
               {t.month_sale || "Monthly Sales"}
             </span>
-            <div className="text-lg font-black text-emerald-mint mt-1">
+            <div className="text-xl font-black text-emerald-mint mt-1">
               Rs. {Number(totalSale).toLocaleString()}
             </div>
           </div>
           <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/60">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">
               {t.month_expense || "Monthly Expenses"}
             </span>
-            <div className="text-lg font-black text-rose-crimson mt-1">
+            <div className="text-xl font-black text-rose-crimson mt-1">
               Rs. {Number(totalExpense).toLocaleString()}
             </div>
           </div>
         </div>
 
         {/* Net Profit & Margin Hero Banner */}
-        <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-3.5 rounded-xl border border-slate-700 flex justify-between items-center">
+        <div className="bg-slate-card p-3 rounded-xl border border-slate-border flex justify-between items-center">
           <div>
-            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wide">
+            <span className="text-xs text-slate-400 font-bold uppercase tracking-wide">
               {t.month_profit || "Net Profit"}
             </span>
-            <div className="text-xl font-black text-sky-cyan mt-0.5">
+            <div className="text-xl font-black text-[#1F5C4E] mt-0.5">
               Rs. {Number(netProfit).toLocaleString()}
             </div>
           </div>
           <div className="text-right">
-            <span className="text-[11px] text-slate-400 font-bold">Margin</span>
-            <div className="text-sm font-black text-emerald-mint bg-emerald-mint/15 border border-emerald-mint/30 px-2.5 py-0.5 rounded-full mt-0.5">
+            <span className="text-xs text-slate-400 font-bold">Margin</span>
+            <div className="text-xs font-black text-emerald-mint bg-emerald-mint/15 border border-emerald-mint/30 px-2.5 py-0.5 rounded-full mt-0.5">
               {margin}%
             </div>
           </div>
@@ -1490,12 +1490,12 @@ function ReportsTabContent({
       </div>
 
       {/* Category Breakdown with Progress Bars */}
-      <div className="rounded-2xl bg-slate-card border border-slate-border p-4 shadow-sm">
+      <div className="rounded-xl bg-slate-card border border-slate-border p-4">
         <div className="text-sm font-bold text-slate-100 mb-3 flex items-center justify-between">
           <span>Category Expenses Breakdown</span>
           <span className="text-xs text-slate-400 font-medium">{catBreakdown.filter(c => c.total > 0).length} active</span>
         </div>
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-2">
           {catBreakdown.map((cat) => {
             const pct = totalExpense > 0 ? ((cat.total / totalExpense) * 100).toFixed(1) : "0.0";
             return (
@@ -1505,15 +1505,14 @@ function ReportsTabContent({
               >
                 <div className="flex justify-between items-center mb-1.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-base">{cat.icon}</span>
                     <span className="text-xs font-bold text-slate-200">{cat.name}</span>
-                    <span className="text-[11px] text-slate-400">({cat.count})</span>
+                    <span className="text-xs text-slate-400">({cat.count})</span>
                   </div>
                   <div className="text-right flex items-baseline gap-1.5">
                     <span className={`text-xs font-black ${cat.total > 0 ? "text-slate-100" : "text-slate-400"}`}>
                       Rs. {Number(cat.total).toLocaleString()}
                     </span>
-                    <span className="text-[10px] text-slate-400 font-semibold">({pct}%)</span>
+                    <span className="text-xs text-slate-400 font-medium">({pct}%)</span>
                   </div>
                 </div>
                 <div className="w-full h-1.5 rounded-full bg-slate-700/60 overflow-hidden">
@@ -1521,7 +1520,7 @@ function ReportsTabContent({
                     className="h-full rounded-full transition-all duration-300"
                     style={{
                       width: `${pct}%`,
-                      backgroundColor: cat.color || "#38bdf8",
+                      backgroundColor: "#1F5C4E",
                     }}
                   />
                 </div>
@@ -1606,13 +1605,15 @@ function Hisaab({
       {missing > 0 && (
         <div
           onClick={onAlerts}
-          className="cursor-pointer mb-4 p-3.5 rounded-2xl bg-rose-crimson/10 border border-rose-crimson/30 text-rose-crimson shadow-sm flex items-center gap-3 transition-all active:scale-[0.99]"
+          className="cursor-pointer mb-4 p-3 rounded-xl bg-rose-crimson/10 border border-rose-crimson/30 text-rose-crimson flex items-center justify-between gap-3 transition-all active:scale-[0.99]"
         >
-          <span className="text-xl flex-shrink-0">🚨</span>
-          <span className="flex-1 font-bold text-xs leading-snug">
-            {t.missing_today.replace("{x}", Math.round(missing).toLocaleString("en-US"))}
-          </span>
-          <span className="text-xs font-black text-rose-crimson uppercase tracking-wide flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-rose-crimson" />
+            <span className="font-bold text-xs leading-snug">
+              {t.missing_today.replace("{x}", Math.round(missing).toLocaleString("en-US"))}
+            </span>
+          </div>
+          <span className="text-xs font-bold text-rose-crimson uppercase tracking-wide flex-shrink-0">
             Review &rarr;
           </span>
         </div>
@@ -1620,35 +1621,28 @@ function Hisaab({
 
       {/* Net Profit Hero Card with prominent visual hierarchy */}
       <div
-        className={`rounded-2xl p-5 mb-4 text-white shadow-lg relative overflow-hidden border ${
+        className={`rounded-xl p-4 mb-4 text-white relative overflow-hidden border ${
           netProfit >= 0
-            ? "bg-gradient-to-br from-slate-900 via-slate-850 to-slate-800 border-slate-700/80"
-            : "bg-gradient-to-br from-rose-950/70 via-slate-900 to-slate-900 border-rose-crimson/40"
+            ? "bg-slate-card border-slate-border"
+            : "bg-slate-card border-rose-crimson/40"
         }`}
       >
-        {/* Subtle Ambient Radial Glow */}
-        <div
-          className={`absolute top-0 right-0 w-36 h-36 rounded-full blur-3xl pointer-events-none -mr-10 -mt-10 ${
-            netProfit >= 0 ? "bg-emerald-mint/15" : "bg-rose-crimson/15"
-          }`}
-        />
-
         <div className="flex justify-between items-center relative z-10">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
             {t.profit || "Today's Net Munafa (Profit)"}
           </span>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white/10 text-slate-200 border border-white/15">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-mint animate-pulse" />
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-white/10 text-slate-200 border border-white/15">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-mint" />
               Live
             </span>
           </div>
         </div>
 
-        <div className="text-3xl font-black my-2.5 tracking-tight text-white relative z-10 flex items-baseline gap-2.5 flex-wrap">
+        <div className="text-[32px] font-black my-2 tracking-tight text-white relative z-10 flex items-baseline gap-2.5 flex-wrap">
           <span>Rs. {netProfit.toLocaleString()}</span>
           <span
-            className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
+            className={`text-xs font-bold px-2 py-0.5 rounded-full ${
               netProfit >= 0
                 ? "bg-emerald-mint/15 text-emerald-mint border border-emerald-mint/30"
                 : "bg-rose-crimson/15 text-rose-crimson border border-rose-crimson/30"
@@ -1658,7 +1652,7 @@ function Hisaab({
           </span>
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-slate-300 pt-2.5 border-t border-white/10 relative z-10">
+        <div className="flex items-center gap-3 text-xs text-slate-300 pt-2 border-t border-white/10 relative z-10">
           <span>Sales: <b className="text-emerald-mint font-bold">Rs. {sale.toLocaleString()}</b></span>
           <span className="text-slate-500">•</span>
           <span>Kharcha: <b className="text-rose-crimson font-bold">Rs. {totalExp.toLocaleString()}</b></span>
@@ -1668,57 +1662,53 @@ function Hisaab({
       {/* Interactive KPI Cards Grid */}
       <div className="grid grid-cols-2 gap-3 mb-4">
         {/* Today's Sale Card (Emerald Mint) */}
-        <div className="rounded-2xl bg-slate-card border border-slate-border p-3.5 shadow-sm flex flex-col justify-between">
+        <div className="rounded-xl bg-slate-card border border-slate-border p-3 flex flex-col justify-between">
           <div className="flex items-center gap-1.5 text-emerald-mint text-xs font-bold uppercase tracking-wide">
-            <span>📈</span>
             <span>{t.total_sale || "TODAY'S SALE"}</span>
           </div>
-          <div className="text-xl font-black text-slate-100 my-1.5">
+          <div className="text-xl font-black text-slate-100 my-1">
             Rs. {sale.toLocaleString()}
           </div>
-          <div className="text-[11px] text-slate-400 font-medium">Auto-synced from POS</div>
+          <div className="text-xs text-slate-400 font-medium">Auto-synced from POS</div>
         </div>
 
         {/* CLICKABLE Today's Expense Card (Rose Crimson) */}
         <div
           onClick={onOpenExpenseDetails}
-          className="rounded-2xl bg-slate-card border border-rose-crimson/30 p-3.5 shadow-sm cursor-pointer hover:border-rose-crimson/60 active:scale-[0.99] transition-all flex flex-col justify-between"
+          className="rounded-xl bg-slate-card border border-rose-crimson/30 p-3 cursor-pointer hover:border-rose-crimson/60 active:scale-[0.99] transition-all flex flex-col justify-between"
         >
           <div className="flex justify-between items-center text-rose-crimson text-xs font-bold uppercase tracking-wide">
-            <div className="flex items-center gap-1.5">
-              <span>💸</span>
-              <span>{t.total_expense || "TODAY'S KHARCHA"}</span>
-            </div>
-            <span className="text-[11px] text-sky-cyan font-bold">View &rarr;</span>
+            <span>{t.total_expense || "TODAY'S KHARCHA"}</span>
+            <span className="text-xs text-[#1F5C4E] font-bold">View &rarr;</span>
           </div>
-          <div className="text-xl font-black text-rose-crimson my-1.5">
+          <div className="text-xl font-black text-rose-crimson my-1">
             Rs. {totalExp.toLocaleString()}
           </div>
-          <div className="text-[11px] text-rose-crimson font-semibold">
-            Tap for breakdown 🔍
+          <div className="text-xs text-rose-crimson font-medium">
+            View breakdown
           </div>
         </div>
       </div>
 
       {/* Khata Receivables & Advance Payments Banner */}
       {(khataReceivable > 0 || khataAdvance > 0) && (
-        <div className="rounded-2xl bg-slate-card border border-amber-warm/30 p-3.5 shadow-sm mb-4 flex items-center justify-between">
+        <div className="rounded-xl bg-slate-card border border-amber-warm/30 p-3 mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-warm/15 border border-amber-warm/30 text-amber-warm flex items-center justify-center font-bold text-base flex-shrink-0">
-              📒
+            <div className="w-8 h-8 rounded-lg bg-amber-warm/15 border border-amber-warm/30 text-amber-warm flex items-center justify-center font-bold text-xs flex-shrink-0">
+              K
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold text-amber-warm uppercase tracking-wide">
+                <span className="text-xs font-bold text-amber-warm uppercase tracking-wide">
                   {t.receivables || "Khata Receivables"}
                 </span>
                 {khataAdvance > 0 && (
-                  <span className="text-[10px] font-bold text-emerald-mint bg-emerald-mint/15 px-1.5 py-0.2 rounded">
+                  <span className="text-xs font-bold text-emerald-mint bg-emerald-mint/15 px-1.5 py-0.2 rounded border border-emerald-mint/30">
                     +Rs. {Math.round(khataAdvance).toLocaleString()} Advance
                   </span>
                 )}
               </div>
-              <div className="text-lg font-black text-amber-warm">
+              <div className="text-xl font-black text-amber-warm">
                 Rs. {Math.round(khataReceivable).toLocaleString()}
               </div>
             </div>
@@ -1730,15 +1720,15 @@ function Hisaab({
       {/* Monthly Summary Card (Clickable for Statement & PDF) */}
       <div
         onClick={() => onOpenMonthlyStatement && onOpenMonthlyStatement(mSale, mExp)}
-        className="rounded-2xl bg-slate-card border border-slate-border hover:border-sky-cyan/40 p-4 shadow-sm mb-4 cursor-pointer transition-all active:scale-[0.99]"
+        className="rounded-xl bg-slate-card border border-slate-border hover:border-[#1F5C4E]/40 p-4 mb-4 cursor-pointer transition-all active:scale-[0.99]"
       >
         <div className="flex justify-between items-center mb-3">
           <div>
             <h4 className="text-sm font-bold text-slate-100 m-0">{t.month_title || "This Month Summary"}</h4>
-            <span className="text-[11px] text-slate-400 font-medium">Month: {ym}</span>
+            <span className="text-xs text-slate-400 font-medium">Month: {ym}</span>
           </div>
-          <span className="text-xs font-bold text-sky-cyan bg-sky-cyan/15 border border-sky-cyan/30 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-sm">
-            <span>📄 Statement & PDF</span>
+          <span className="text-xs font-bold text-[#1F5C4E] bg-[#1F5C4E]/15 border border-[#1F5C4E]/30 px-3 py-1 rounded-lg flex items-center gap-1.5">
+            <span>Statement & PDF</span>
             <span>&rarr;</span>
           </span>
         </div>
@@ -1747,8 +1737,8 @@ function Hisaab({
         <div className="h-px bg-slate-border my-2" />
         <Row label={t.month_profit || "Monthly Profit"} value={mSale - mExp} bold isProfit color="text-emerald-mint" />
         <div className="text-right mt-2">
-          <span className="text-[11px] text-slate-400 font-medium">
-            Tap to view breakdown, category stats & download PDF 🔍
+          <span className="text-xs text-slate-400 font-medium">
+            Tap to view breakdown, category stats & statement
           </span>
         </div>
       </div>
@@ -1827,7 +1817,7 @@ function ExpenseDetailModal({ today, expenses, shopId, T, isDemo, onDeleteExpens
 
   liveExpenses.forEach((item) => {
     const cName = item.category || "Other";
-    if (!catBreakdown[cName]) catBreakdown[cName] = { name: cName, icon: "📦", color: "#64748b", total: 0, items: [] };
+    if (!catBreakdown[cName]) catBreakdown[cName] = { name: cName, icon: "", color: "#64748b", total: 0, items: [] };
     catBreakdown[cName].total += Number(item.amount || 0);
     catBreakdown[cName].items.push(item);
   });
@@ -1863,7 +1853,7 @@ function ExpenseDetailModal({ today, expenses, shopId, T, isDemo, onDeleteExpens
         <div className="p-4 overflow-y-auto flex-1">
           {/* Category Progress Bars */}
           <div className="mb-5">
-            <div className="text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-2.5">
+            <div className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">
               Category Breakdown
             </div>
             <div className="flex flex-col gap-2">
@@ -1878,14 +1868,13 @@ function ExpenseDetailModal({ today, expenses, shopId, T, isDemo, onDeleteExpens
                       onClick={() => setSelectedCat(isSelected ? "All" : cat.name)}
                       className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
                         isSelected
-                          ? "bg-slate-800/80 border-sky-cyan shadow-sm"
+                          ? "bg-slate-800/80 border-[#1F5C4E]"
                           : "bg-slate-800/40 border-slate-700/50 hover:border-slate-600"
                       }`}
                     >
                       <div className="flex justify-between items-center mb-1.5">
-                        <span className="text-xs font-bold flex items-center gap-1.5 text-slate-200">
-                          <span>{cat.icon}</span>
-                          <span>{cat.name}</span>
+                        <span className="text-xs font-bold text-slate-200">
+                          {cat.name}
                         </span>
                         <span className="text-xs font-black text-slate-100">
                           Rs. {cat.total.toLocaleString()} <small className="text-slate-400 font-normal">({pct}%)</small>
@@ -1894,7 +1883,7 @@ function ExpenseDetailModal({ today, expenses, shopId, T, isDemo, onDeleteExpens
                       <div className="w-full h-1.5 rounded-full bg-slate-700/60 overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-300"
-                          style={{ width: `${pct}%`, backgroundColor: cat.color }}
+                          style={{ width: `${pct}%`, backgroundColor: "#1F5C4E" }}
                         />
                       </div>
                     </div>
@@ -1905,15 +1894,15 @@ function ExpenseDetailModal({ today, expenses, shopId, T, isDemo, onDeleteExpens
 
           {/* Itemized List */}
           <div>
-            <div className="flex justify-between items-center mb-2.5">
-              <div className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">
+            <div className="flex justify-between items-center mb-2">
+              <div className="text-xs font-bold uppercase text-slate-400 tracking-wider">
                 Itemized Expenses {selectedCat !== "All" && `(${selectedCat})`}
               </div>
               {selectedCat !== "All" && (
                 <button
                   type="button"
                   onClick={() => setSelectedCat("All")}
-                  className="text-xs font-bold text-sky-cyan hover:underline p-0"
+                  className="text-xs font-bold text-[#1F5C4E] hover:underline p-0"
                 >
                   Show All
                 </button>
@@ -1925,21 +1914,15 @@ function ExpenseDetailModal({ today, expenses, shopId, T, isDemo, onDeleteExpens
             ) : (
               <div className="flex flex-col gap-2">
                 {filteredItems.map((item) => {
-                  const catInfo = CATS.find((c) => c.name === item.category) || { icon: "📦", color: "#64748b" };
                   return (
                     <div
                       key={item.id}
-                      className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/50 flex justify-between items-center hover:border-slate-600 transition-all"
+                      className="p-3 min-h-[44px] rounded-xl bg-slate-800/40 border border-slate-700/50 flex justify-between items-center hover:border-slate-600 transition-all"
                     >
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
-                        <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-sm flex-shrink-0">
-                          {catInfo.icon}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="font-bold text-xs text-slate-100 truncate">{item.title}</div>
-                          <div className="text-[11px] text-slate-400">
-                            {item.category} {item.time ? `• ${item.time}` : ""}
-                          </div>
+                      <div className="min-w-0 flex-1 mr-2">
+                        <div className="font-bold text-xs text-slate-100 truncate">{item.title}</div>
+                        <div className="text-xs text-slate-400">
+                          {item.category} {item.time ? `• ${item.time}` : ""}
                         </div>
                       </div>
 
@@ -1952,9 +1935,9 @@ function ExpenseDetailModal({ today, expenses, shopId, T, isDemo, onDeleteExpens
                           disabled={deletingId === item.id}
                           onClick={(e) => handleDeletePrompt(e, item)}
                           title="Delete Expense"
-                          className="w-7 h-7 rounded-lg bg-rose-crimson/10 border border-rose-crimson/30 text-rose-crimson hover:bg-rose-crimson/20 active:scale-90 flex items-center justify-center text-xs transition-all disabled:opacity-40"
+                          className="px-2 py-1 rounded-lg bg-rose-crimson/10 border border-rose-crimson/30 text-rose-crimson hover:bg-rose-crimson/20 active:scale-90 flex items-center justify-center text-xs font-bold transition-all disabled:opacity-40"
                         >
-                          {deletingId === item.id ? "..." : "🗑️"}
+                          {deletingId === item.id ? "..." : "Del"}
                         </button>
                       </div>
                     </div>
@@ -2491,67 +2474,67 @@ function MonthlyStatementModal({
         {/* Scrollable Content */}
         <div className="p-4 overflow-y-auto flex-1">
           {/* Action Download & Print Bar */}
-          <div className="flex gap-2.5 mb-4 no-print">
+          <div className="flex gap-2 mb-4 no-print">
             <button
               type="button"
               disabled={downloading}
               onClick={handleDownloadPdf}
-              className="flex-1 py-2.5 px-4 rounded-xl bg-sky-cyan text-slate-950 hover:bg-sky-cyan/90 font-black text-xs shadow-md shadow-sky-cyan/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              className="flex-1 py-2.5 px-4 min-h-[44px] rounded-xl bg-[#1F5C4E] text-white hover:bg-[#1F5C4E]/90 font-bold text-xs active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <span>{downloading ? "⏳ Generating..." : "📥 Download PDF Statement"}</span>
+              <span>{downloading ? "Generating..." : "Download PDF Statement"}</span>
             </button>
 
             <button
               type="button"
               onClick={handlePrint}
-              className="py-2.5 px-4 rounded-xl bg-slate-850 hover:bg-slate-800 text-slate-200 border border-slate-700 text-xs font-bold active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
+              className="py-2.5 px-4 min-h-[44px] rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 text-xs font-bold active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
             >
-              <span>🖨️ Print</span>
+              <span>Print</span>
             </button>
           </div>
 
           {/* 4 Financial KPI Summary Cards */}
-          <div className="grid grid-cols-2 gap-2.5 mb-5">
+          <div className="grid grid-cols-2 gap-2 mb-4">
             <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/60">
-              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">
                 Total Sale
               </div>
-              <div className="text-lg font-black text-emerald-mint mt-1">
+              <div className="text-xl font-black text-emerald-mint mt-1">
                 Rs. {Math.round(totalSale).toLocaleString()}
               </div>
             </div>
 
             <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/60">
-              <div className="text-[11px] font-bold text-rose-crimson uppercase tracking-wide">
+              <div className="text-xs font-bold text-rose-crimson uppercase tracking-wide">
                 Total Kharcha
               </div>
-              <div className="text-lg font-black text-rose-crimson mt-1">
+              <div className="text-xl font-black text-rose-crimson mt-1">
                 Rs. {Math.round(totalExpense).toLocaleString()}
               </div>
             </div>
 
             <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/60">
-              <div className="text-[11px] font-bold text-emerald-mint uppercase tracking-wide">
+              <div className="text-xs font-bold text-emerald-mint uppercase tracking-wide">
                 Net Profit (Munafa)
               </div>
-              <div className={`text-lg font-black mt-1 ${netProfit >= 0 ? "text-emerald-mint" : "text-rose-crimson"}`}>
+              <div className={`text-xl font-black mt-1 ${netProfit >= 0 ? "text-emerald-mint" : "text-rose-crimson"}`}>
                 Rs. {Math.round(netProfit).toLocaleString()}
               </div>
             </div>
 
             <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/60">
-              <div className="text-[11px] font-bold text-sky-cyan uppercase tracking-wide">
+              <div className="text-xs font-bold text-[#1F5C4E] uppercase tracking-wide">
                 Profit Margin
               </div>
-              <div className="text-lg font-black text-sky-cyan mt-1">
+              <div className="text-xl font-black text-[#1F5C4E] mt-1">
                 {margin}%
               </div>
             </div>
           </div>
 
           {/* Category Breakdown with Progress Bars */}
-          <div className="mb-5">
-            <div className="text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-2.5">
+          <div className="mb-4">
+            <div className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">
               Monthly Expense Categories
             </div>
             <div className="flex flex-col gap-2">
@@ -2566,15 +2549,13 @@ function MonthlyStatementModal({
                       onClick={() => setSelectedCat(isSelected ? "All" : cat.name)}
                       className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
                         isSelected
-                          ? "bg-slate-800/80 border-sky-cyan shadow-sm"
+                          ? "bg-slate-800/80 border-[#1F5C4E]"
                           : "bg-slate-800/40 border-slate-700/50 hover:border-slate-600"
                       }`}
                     >
                       <div className="flex justify-between items-center mb-1.5">
-                        <span className="text-xs font-bold flex items-center gap-1.5 text-slate-200">
-                          <span>{cat.icon}</span>
-                          <span>{cat.name}</span>
-                          <span className="text-[11px] text-slate-400">({cat.count} txns)</span>
+                        <span className="text-xs font-bold text-slate-200">
+                          {cat.name} <span className="text-xs text-slate-400">({cat.count} txns)</span>
                         </span>
                         <span className="text-xs font-black text-slate-100">
                           Rs. {cat.total.toLocaleString()} <small className="text-slate-400 font-normal">({pct}%)</small>
@@ -2583,7 +2564,7 @@ function MonthlyStatementModal({
                       <div className="w-full h-1.5 rounded-full bg-slate-700/60 overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-300"
-                          style={{ width: `${pct}%`, backgroundColor: cat.color }}
+                          style={{ width: `${pct}%`, backgroundColor: "#1F5C4E" }}
                         />
                       </div>
                     </div>
@@ -2594,15 +2575,15 @@ function MonthlyStatementModal({
 
           {/* Itemized Expenses List */}
           <div>
-            <div className="flex justify-between items-center mb-2.5">
-              <div className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">
+            <div className="flex justify-between items-center mb-2">
+              <div className="text-xs font-bold uppercase text-slate-400 tracking-wider">
                 Monthly Expenses ({filteredItems.length}) {selectedCat !== "All" && `• ${selectedCat}`}
               </div>
               {selectedCat !== "All" && (
                 <button
                   type="button"
                   onClick={() => setSelectedCat("All")}
-                  className="text-xs font-bold text-sky-cyan hover:underline p-0"
+                  className="text-xs font-bold text-[#1F5C4E] hover:underline p-0"
                 >
                   Show All
                 </button>
@@ -2611,21 +2592,15 @@ function MonthlyStatementModal({
 
             <div className="flex flex-col gap-2">
               {filteredItems.map((item) => {
-                const catInfo = CATS.find((c) => c.name === item.category) || { icon: "📦", color: "#64748b" };
                 return (
                   <div
                     key={item.id}
-                    className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/50 flex justify-between items-center hover:border-slate-600 transition-all"
+                    className="p-3 min-h-[44px] rounded-xl bg-slate-800/40 border border-slate-700/50 flex justify-between items-center hover:border-slate-600 transition-all"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
-                      <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-sm flex-shrink-0">
-                        {catInfo.icon}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="font-bold text-xs text-slate-100 truncate">{item.title}</div>
-                        <div className="text-[11px] text-slate-400">
-                          {item.date} • {item.category}
-                        </div>
+                    <div className="min-w-0 flex-1 mr-2">
+                      <div className="font-bold text-xs text-slate-100 truncate">{item.title}</div>
+                      <div className="text-xs text-slate-400">
+                        {item.date} • {item.category}
                       </div>
                     </div>
 
@@ -2724,40 +2699,40 @@ function ExpenseForm({ shopId, T, isDemo, onAddDemoExpense }) {
   };
 
   return (
-    <div className="rounded-2xl bg-slate-card border border-slate-border p-4 shadow-sm">
+    <div className="rounded-xl bg-slate-card border border-slate-border p-4">
       <div className="flex justify-between items-center mb-3">
         <h4 className="m-0 text-sm font-bold text-slate-100">+ Add Kharcha (Expense)</h4>
-        <span className="text-[11px] text-slate-400 font-semibold px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700">Quick Entry</span>
+        <span className="text-xs text-slate-400 font-semibold px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700">Quick Entry</span>
       </div>
 
-      {err && <div className="text-rose-crimson text-xs mb-2 font-semibold">⚠️ {err}</div>}
-      {success && <div className="text-emerald-mint text-xs mb-2 font-bold">✓ Kharcha saved successfully!</div>}
+      {err && <div className="text-rose-crimson text-xs mb-2 font-semibold">{err}</div>}
+      {success && <div className="text-emerald-mint text-xs mb-2 font-bold">Kharcha saved successfully!</div>}
 
       <form onSubmit={save}>
         <input
           placeholder="Title (e.g. Bijli Bill, Petrol, Staff Lunch)"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-sky-cyan focus:ring-1 focus:ring-sky-cyan text-sm text-slate-100 placeholder-slate-500 outline-none mb-2.5 transition-all"
+          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-[#1F5C4E] text-sm text-slate-100 placeholder-slate-500 outline-none mb-2 transition-all"
         />
 
-        <div className="grid grid-cols-[1fr_1.3fr] gap-2.5 mb-3">
+        <div className="grid grid-cols-[1fr_1.3fr] gap-2 mb-3">
           <input
             placeholder="Amount (Rs.)"
             type="number"
             min="1"
             value={amt}
             onChange={(e) => setAmt(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-sky-cyan focus:ring-1 focus:ring-sky-cyan text-sm font-bold text-slate-100 placeholder-slate-500 outline-none transition-all"
+            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-[#1F5C4E] text-sm font-bold text-slate-100 placeholder-slate-500 outline-none transition-all"
           />
 
           <select
             value={cat}
             onChange={(e) => setCat(e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-sky-cyan focus:ring-1 focus:ring-sky-cyan text-xs font-semibold text-slate-200 outline-none cursor-pointer transition-all"
+            className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-[#1F5C4E] text-xs font-semibold text-slate-200 outline-none cursor-pointer transition-all"
           >
             {CATS.map((c) => (
-              <option key={c.name} value={c.name}>{c.icon} {c.name}</option>
+              <option key={c.name} value={c.name}>{c.name}</option>
             ))}
           </select>
         </div>
@@ -2765,7 +2740,7 @@ function ExpenseForm({ shopId, T, isDemo, onAddDemoExpense }) {
         <button
           disabled={busy}
           type="submit"
-          className="w-full min-h-[46px] rounded-xl bg-gradient-to-r from-rose-crimson to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white font-bold text-sm shadow-md shadow-rose-crimson/20 active:scale-[0.99] transition-all flex items-center justify-center disabled:opacity-50"
+          className="w-full min-h-[44px] rounded-xl bg-[#1F5C4E] hover:bg-[#1F5C4E]/90 text-white font-bold text-sm active:scale-[0.99] transition-all flex items-center justify-center disabled:opacity-50"
         >
           {busy ? "Saving..." : "Save Kharcha"}
         </button>
@@ -2847,23 +2822,22 @@ function Khata({ shopId, t, T, isDemo, demoCustomers, setDemoCustomers, demoEntr
   return (
     <div>
       {/* Khata Hero Card with Baqaya & Advance Totals */}
-      <div className="rounded-2xl bg-gradient-to-br from-slate-900 via-slate-850 to-slate-800 border border-amber-warm/30 p-5 text-white mb-4 shadow-lg relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-amber-warm/10 blur-3xl pointer-events-none -mr-8 -mt-8" />
+      <div className="rounded-xl bg-slate-card border border-slate-border p-4 text-white mb-4 relative overflow-hidden">
         <div className="flex justify-between items-start">
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-amber-warm/90">
               Total Khata to Receive (Baqaya)
             </div>
-            <div className="text-3xl font-black text-amber-warm my-1.5 tracking-tight">
+            <div className="text-[32px] font-black text-amber-warm my-1 tracking-tight">
               Rs. {Math.round(receivable).toLocaleString("en-US")}
             </div>
           </div>
           {totalAdvance > 0 && (
-            <div className="text-right bg-emerald-mint/10 border border-emerald-mint/30 rounded-xl px-3 py-1.5">
+            <div className="text-right bg-emerald-mint/10 border border-emerald-mint/30 rounded-lg px-2.5 py-1">
               <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-mint">
                 Advance Received (+)
               </div>
-              <div className="text-base font-black text-emerald-mint">
+              <div className="text-sm font-black text-emerald-mint">
                 +Rs. {Math.round(totalAdvance).toLocaleString("en-US")}
               </div>
             </div>
@@ -2881,12 +2855,11 @@ function Khata({ shopId, t, T, isDemo, demoCustomers, setDemoCustomers, demoEntr
 
       {/* Clean Search Bar */}
       <div className="relative mb-3">
-        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">🔍</span>
         <input
           placeholder={t.search || "Search customer by name or phone..."}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 bg-slate-card border border-slate-border focus:border-sky-cyan rounded-xl text-sm text-slate-100 placeholder-slate-400 outline-none shadow-sm transition-all"
+          className="w-full px-3.5 py-2.5 bg-slate-card border border-slate-border focus:border-[#1F5C4E] rounded-xl text-sm text-slate-100 placeholder-slate-400 outline-none transition-all"
         />
       </div>
 
@@ -2906,7 +2879,7 @@ function Khata({ shopId, t, T, isDemo, demoCustomers, setDemoCustomers, demoEntr
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="w-full min-h-[46px] rounded-xl bg-gradient-to-r from-sky-cyan to-blue-500 hover:from-sky-cyan/90 hover:to-blue-600 text-slate-950 font-black text-sm shadow-md shadow-sky-cyan/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2 mb-4"
+          className="w-full min-h-[44px] rounded-xl bg-[#1F5C4E] hover:bg-[#1F5C4E]/90 text-white font-bold text-sm active:scale-[0.99] transition-all flex items-center justify-center gap-2 mb-4"
         >
           <span>+</span>
           <span>{t.add_customer || "Add New Customer to Khata"}</span>
@@ -2919,11 +2892,11 @@ function Khata({ shopId, t, T, isDemo, demoCustomers, setDemoCustomers, demoEntr
           <div
             key={c.id}
             onClick={() => setSelectedId(c.id)}
-            className="rounded-2xl bg-slate-card border border-slate-border hover:border-slate-700 p-3.5 flex justify-between items-center cursor-pointer shadow-sm active:scale-[0.99] transition-all"
+            className="rounded-xl bg-slate-card border border-slate-border hover:border-slate-700 p-3 min-h-[44px] flex justify-between items-center cursor-pointer active:scale-[0.99] transition-all"
           >
             <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
               <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm flex-shrink-0 ${
+                className={`w-9 h-9 rounded-lg flex items-center justify-center font-black text-xs flex-shrink-0 ${
                   c.balance > 0
                     ? "bg-amber-warm/15 text-amber-warm border border-amber-warm/30"
                     : c.balance < 0
@@ -2941,7 +2914,7 @@ function Khata({ shopId, t, T, isDemo, demoCustomers, setDemoCustomers, demoEntr
 
             <div className="text-right flex-shrink-0">
               <div
-                className={`font-black text-base ${
+                className={`font-black text-sm ${
                   c.balance > 0
                     ? "text-amber-warm"
                     : c.balance < 0
@@ -2952,7 +2925,7 @@ function Khata({ shopId, t, T, isDemo, demoCustomers, setDemoCustomers, demoEntr
                 Rs. {Math.abs(c.balance || 0).toLocaleString()}
               </div>
               <div
-                className={`text-[11px] font-bold ${
+                className={`text-xs font-bold inline-flex items-center gap-1.5 mt-0.5 ${
                   c.balance > 0
                     ? "text-amber-warm"
                     : c.balance < 0
@@ -2960,6 +2933,15 @@ function Khata({ shopId, t, T, isDemo, demoCustomers, setDemoCustomers, demoEntr
                     : "text-slate-400"
                 }`}
               >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    c.balance > 0
+                      ? "bg-amber-warm"
+                      : c.balance < 0
+                      ? "bg-emerald-mint"
+                      : "bg-slate-500"
+                  }`}
+                />
                 {c.balance > 0 ? "Baqaya (owes)" : c.balance < 0 ? "Advance paid" : "Cleared"}
               </div>
             </div>
@@ -2995,7 +2977,23 @@ function AddCustomer({ t, T, shopId, isDemo, onAddDemoCustomer, onDone }) {
     }
 
     try {
-      await call("khataAddCustomer", { name: name.trim(), phone: phone.trim() });
+      if (!auth.currentUser) {
+        try { await signInAnonymously(auth); } catch (_) {}
+      }
+      try {
+        await call("khataAddCustomer", { name: name.trim(), phone: phone.trim() });
+      } catch (cfErr) {
+        console.warn("Cloud function khataAddCustomer failed, using direct Firestore write fallback:", cfErr);
+        const sid = shopId || localStorage.getItem("active_shop_id");
+        if (!sid) throw new Error("Shop session not found. Please log in again.");
+        await addDoc(collection(db, "shops", sid, "khata_customers"), {
+          name: name.trim(),
+          phone: phone.trim(),
+          balance: 0,
+          created_at: new Date().toISOString(),
+          last_txn_at: null,
+        });
+      }
       onDone();
     } catch (e) {
       setErr(e.message || "Failed to save customer.");
@@ -3005,35 +3003,35 @@ function AddCustomer({ t, T, shopId, isDemo, onAddDemoCustomer, onDone }) {
   };
 
   return (
-    <div className="rounded-2xl bg-slate-card border border-sky-cyan/40 p-4 mb-4 shadow-sm">
+    <div className="rounded-xl bg-slate-card border border-slate-border p-4 mb-4">
       <h4 className="m-0 mb-3 text-sm font-bold text-slate-100">+ Add Khata Customer</h4>
       <input
         placeholder="Customer Full Name"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-sky-cyan text-sm text-slate-100 placeholder-slate-500 outline-none mb-2.5"
+        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-[#1F5C4E] text-sm text-slate-100 placeholder-slate-500 outline-none mb-2"
       />
       <input
         placeholder="Phone Number (e.g. 0300-1234567)"
         inputMode="tel"
         value={phone}
         onChange={(e) => setPhone(e.target.value)}
-        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-sky-cyan text-sm text-slate-100 placeholder-slate-500 outline-none mb-3"
+        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-[#1F5C4E] text-sm text-slate-100 placeholder-slate-500 outline-none mb-3"
       />
-      {err && <p className="text-rose-crimson text-xs mb-2.5">{err}</p>}
-      <div className="flex gap-2.5">
+      {err && <p className="text-rose-crimson text-xs mb-2">{err}</p>}
+      <div className="flex gap-2">
         <button
           type="button"
           disabled={busy}
           onClick={save}
-          className="flex-1 py-2.5 px-4 rounded-xl bg-sky-cyan text-slate-950 font-bold text-xs hover:bg-sky-cyan/90 active:scale-[0.98] transition-all disabled:opacity-50"
+          className="flex-1 min-h-[44px] py-2.5 px-4 rounded-xl bg-[#1F5C4E] text-white font-bold text-xs hover:bg-[#1F5C4E]/90 active:scale-[0.98] transition-all disabled:opacity-50"
         >
           {busy ? "Saving..." : "Save Customer"}
         </button>
         <button
           type="button"
           onClick={onDone}
-          className="py-2.5 px-4 rounded-xl bg-slate-800 text-slate-300 font-semibold text-xs border border-slate-700 active:scale-[0.98] transition-all"
+          className="min-h-[44px] py-2.5 px-4 rounded-xl bg-slate-800 text-slate-300 font-semibold text-xs border border-slate-700 active:scale-[0.98] transition-all"
         >
           Cancel
         </button>
@@ -3149,7 +3147,28 @@ function CustomerLedger({
     }
 
     try {
-      await call("khataAddEntry", { customerId: customer.id, type, amount: parsedAmount, note: note.trim() });
+      try {
+        await call("khataAddEntry", { customerId: customer.id, type, amount: parsedAmount, note: note.trim() });
+      } catch (cfErr) {
+        console.warn("Cloud function khataAddEntry failed, using direct Firestore write fallback:", cfErr);
+        const sid = shopId || localStorage.getItem("active_shop_id");
+        if (!sid) throw new Error("Shop session not found. Please log in again.");
+        const nowIso = new Date().toISOString();
+        const curBal = Number(customer.balance || 0);
+        const nextBal = curBal + (type === "udhaar" ? parsedAmount : -parsedAmount);
+
+        await addDoc(collection(db, "shops", sid, "khata_customers", customer.id, "entries"), {
+          type,
+          amount: parsedAmount,
+          note: note.trim(),
+          date: todayPK(),
+          created_at: nowIso,
+        });
+        await updateDoc(doc(db, "shops", sid, "khata_customers", customer.id), {
+          balance: nextBal,
+          last_txn_at: nowIso,
+        });
+      }
       setAmount("");
       setNote("");
     } catch (e) {
@@ -3166,16 +3185,16 @@ function CustomerLedger({
       <button
         type="button"
         onClick={onBack}
-        className="flex items-center gap-2 text-sky-cyan font-bold text-sm mb-3.5 hover:underline active:scale-98 transition-all"
+        className="flex items-center gap-2 text-[#1F5C4E] font-bold text-sm mb-3 hover:underline active:scale-98 transition-all"
       >
         <span>&larr;</span> Back to Customers
       </button>
 
       {/* Customer Header Info */}
-      <div className="rounded-2xl bg-slate-card border border-slate-border p-4 sm:p-5 mb-4 shadow-sm">
+      <div className="rounded-xl bg-slate-card border border-slate-border p-4 mb-4">
         <div className="flex justify-between items-start gap-3">
           <div>
-            <div className="text-xl sm:text-2xl font-black text-slate-100 tracking-tight">{customer.name}</div>
+            <div className="text-xl font-black text-slate-100 tracking-tight">{customer.name}</div>
             {customer.phone && <div className="text-xs text-slate-400 mt-0.5">{customer.phone}</div>}
           </div>
           <button
@@ -3185,19 +3204,19 @@ function CustomerLedger({
             title="Delete Customer"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-crimson/10 border border-rose-crimson/25 text-rose-crimson text-xs font-bold hover:bg-rose-crimson/20 active:scale-95 transition-all disabled:opacity-50"
           >
-            🗑️ {deletingCust ? "Deleting..." : "Delete Customer"}
+            {deletingCust ? "Deleting..." : "Delete Customer"}
           </button>
         </div>
-        <div className="mt-3.5 flex items-baseline gap-2.5">
+        <div className="mt-3 flex items-baseline gap-2.5">
           <span
-            className={`text-2xl sm:text-3xl font-black tracking-tight ${
+            className={`text-[32px] font-black tracking-tight ${
               bal > 0 ? "text-amber-warm" : bal < 0 ? "text-emerald-mint" : "text-slate-400"
             }`}
           >
             Rs. {Math.abs(bal).toLocaleString()}
           </span>
           <span
-            className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+            className={`text-xs font-bold inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border ${
               bal > 0
                 ? "bg-amber-warm/15 text-amber-warm border-amber-warm/30"
                 : bal < 0
@@ -3205,21 +3224,26 @@ function CustomerLedger({
                 : "bg-slate-800 text-slate-400 border-slate-700"
             }`}
           >
-            {bal > 0 ? "Baqaya / Owes" : bal < 0 ? "Advance" : "Cleared"}
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                bal > 0 ? "bg-amber-warm" : bal < 0 ? "bg-emerald-mint" : "bg-slate-500"
+              }`}
+            />
+            {bal > 0 ? "Baqaya (owes)" : bal < 0 ? "Advance" : "Cleared"}
           </span>
         </div>
       </div>
 
       {/* Add Entry Card */}
-      <div className="rounded-2xl bg-slate-card border border-slate-border p-4 sm:p-5 mb-4 shadow-sm">
-        <div className="flex gap-2.5 mb-3.5">
+      <div className="rounded-xl bg-slate-card border border-slate-border p-4 mb-4">
+        <div className="flex gap-2 mb-3">
           <button
             type="button"
             onClick={() => setType("udhaar")}
-            className={`flex-1 py-3 px-3 rounded-xl font-black text-sm tracking-wide transition-all active:scale-[0.98] ${
+            className={`flex-1 py-2.5 px-3 rounded-xl font-bold text-sm tracking-wide transition-all active:scale-[0.98] ${
               type === "udhaar"
-                ? "bg-amber-warm text-slate-950 shadow-sm"
-                : "bg-slate-900/60 text-slate-400 border border-slate-700/60 hover:text-slate-200"
+                ? "bg-amber-warm text-slate-950"
+                : "bg-slate-900 text-slate-400 border border-slate-700 hover:text-slate-200"
             }`}
           >
             Udhaar Diya (+)
@@ -3227,10 +3251,10 @@ function CustomerLedger({
           <button
             type="button"
             onClick={() => setType("payment")}
-            className={`flex-1 py-3 px-3 rounded-xl font-black text-sm tracking-wide transition-all active:scale-[0.98] ${
+            className={`flex-1 py-2.5 px-3 rounded-xl font-bold text-sm tracking-wide transition-all active:scale-[0.98] ${
               type === "payment"
-                ? "bg-emerald-mint text-slate-950 shadow-sm"
-                : "bg-slate-900/60 text-slate-400 border border-slate-700/60 hover:text-slate-200"
+                ? "bg-[#1F5C4E] text-white"
+                : "bg-slate-900 text-slate-400 border border-slate-700 hover:text-slate-200"
             }`}
           >
             Payment Mili (-)
@@ -3243,28 +3267,28 @@ function CustomerLedger({
           min="1"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="w-full px-3.5 py-3 rounded-xl bg-slate-900 border border-slate-700 focus:border-sky-cyan text-base font-bold text-slate-100 placeholder-slate-500 outline-none mb-2.5"
+          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-[#1F5C4E] text-base font-bold text-slate-100 placeholder-slate-500 outline-none mb-2"
         />
         <input
           placeholder="Note (e.g. 5kg Rice, Flour sack, Cash received)"
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-sky-cyan text-sm text-slate-100 placeholder-slate-500 outline-none mb-3"
+          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-[#1F5C4E] text-sm text-slate-100 placeholder-slate-500 outline-none mb-3"
         />
-        {err && <p className="text-rose-crimson text-xs mb-2.5 font-medium">{err}</p>}
+        {err && <p className="text-rose-crimson text-xs mb-2 font-medium">{err}</p>}
         
         <button
           type="button"
           disabled={busy}
           onClick={save}
-          className="w-full min-h-[44px] py-3 px-4 rounded-xl bg-sky-cyan hover:bg-sky-cyan/90 text-slate-950 font-black text-sm tracking-wide transition-all active:scale-[0.98] disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
+          className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-[#1F5C4E] hover:bg-[#1F5C4E]/90 text-white font-bold text-sm tracking-wide transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {busy ? "Recording Entry..." : "Save Entry"}
         </button>
       </div>
 
       {/* Transaction History */}
-      <div className="rounded-2xl bg-slate-card border border-slate-border p-4 sm:p-5 shadow-sm">
+      <div className="rounded-xl bg-slate-card border border-slate-border p-4">
         <h4 className="m-0 mb-3 text-sm font-bold text-slate-100">Ledger History</h4>
         {activeEntries.length === 0 && (
           <p className="text-slate-500 text-center py-6 text-xs">No entries yet.</p>
@@ -3272,13 +3296,13 @@ function CustomerLedger({
         {activeEntries.map((e) => (
           <div
             key={e.id}
-            className="flex justify-between items-center py-2.5 border-b border-slate-800/80 last:border-0"
+            className="flex justify-between items-center py-2.5 min-h-[44px] border-b border-slate-800 last:border-0"
           >
             <div>
               <div className="text-sm font-bold text-slate-200">
                 {e.note || (e.type === "udhaar" ? "Udhaar" : "Payment")}
               </div>
-              <div className="text-[11px] text-slate-500 mt-0.5">{e.date}</div>
+              <div className="text-xs text-slate-500 mt-0.5">{e.date}</div>
             </div>
             <div className="flex items-center gap-3">
               <div
@@ -3293,9 +3317,9 @@ function CustomerLedger({
                 disabled={deletingEntryId === e.id}
                 onClick={() => setEntryToDelete(e)}
                 title="Delete Entry"
-                className="w-7 h-7 rounded-lg flex items-center justify-center bg-rose-crimson/10 border border-rose-crimson/25 text-rose-crimson hover:bg-rose-crimson/20 active:scale-95 transition-all text-xs disabled:opacity-40"
+                className="px-2 py-1 rounded-lg flex items-center justify-center bg-rose-crimson/10 border border-rose-crimson/25 text-rose-crimson hover:bg-rose-crimson/20 active:scale-95 transition-all text-xs font-bold disabled:opacity-40"
               >
-                🗑️
+                Del
               </button>
             </div>
           </div>
@@ -3310,7 +3334,7 @@ function CustomerLedger({
         confirmText={deletingCust ? "Deleting..." : "Delete Customer"}
         cancelText="Cancel"
         isDestructive={true}
-        icon="🗑️"
+        icon={null}
         onConfirm={confirmDeleteCustomer}
         onClose={() => setShowDeleteCustSheet(false)}
       />
@@ -3326,7 +3350,7 @@ function CustomerLedger({
         confirmText="Delete Entry"
         cancelText="Cancel"
         isDestructive={true}
-        icon="🗑️"
+        icon={null}
         onConfirm={confirmDeleteEntry}
         onClose={() => setEntryToDelete(null)}
       />
@@ -3401,25 +3425,25 @@ function Alerts({ alerts, t, T, isDemo, setDemoAlerts, shopId }) {
       {alerts.length === 0 ? (
         <div style={{
           background: T.card, borderRadius: T.radius, padding: 30, textAlign: "center",
-          border: `1px solid ${T.border}`, color: T.textMuted,
+          border: `1px solid ${T.border}`, color: T.textMuted, fontSize: 13,
         }}>
-          🛡️ No suspicious activity or announcements found. All clear!
+          No suspicious activity or announcements found. All clear.
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {alerts.map((a) => {
             const isAdminNotif = a.type === "admin_notification";
             const isUrgent = a.severity === "high";
             const isWarning = a.severity === "medium";
 
             const accentColor = isAdminNotif
-              ? (isUrgent ? (T.danger || T.primary) : isWarning ? T.warn : (T.purple || "#8b5cf6"))
+              ? (isUrgent ? (T.danger || T.primary) : isWarning ? T.warn : (T.purple || "#1F5C4E"))
               : (isUrgent ? T.primary : T.warn);
 
             const bgColor = a.seen
               ? T.card
               : isAdminNotif
-              ? (isUrgent ? (T.primaryLight || "rgba(244,63,94,0.12)") : isWarning ? "rgba(245,158,11,0.12)" : (T.purpleLight || "rgba(139,92,246,0.12)"))
+              ? (isUrgent ? (T.primaryLight || "rgba(244,63,94,0.12)") : isWarning ? "rgba(245,158,11,0.12)" : (T.purpleLight || "rgba(31,92,78,0.12)"))
               : T.primaryLight;
 
             return (
@@ -3428,10 +3452,9 @@ function Alerts({ alerts, t, T, isDemo, setDemoAlerts, shopId }) {
                 style={{
                   background: bgColor,
                   borderRadius: T.radius,
-                  padding: "16px",
-                  borderLeft: `5px solid ${accentColor}`,
+                  padding: "14px",
+                  borderLeft: `4px solid ${accentColor}`,
                   border: `1px solid ${T.border}`,
-                  boxShadow: T.shadowSm,
                   opacity: a.seen ? 0.78 : 1,
                   transition: "all 0.2s ease",
                 }}
@@ -3450,11 +3473,11 @@ function Alerts({ alerts, t, T, isDemo, setDemoAlerts, shopId }) {
                     }}
                   >
                     {isAdminNotif ? (
-                      isUrgent ? "🚨 URGENT ANNOUNCEMENT" :
-                      isWarning ? "⚠️ IMPORTANT NOTICE" :
-                      "📢 ADMIN ANNOUNCEMENT"
+                      isUrgent ? "URGENT ANNOUNCEMENT" :
+                      isWarning ? "IMPORTANT NOTICE" :
+                      "ADMIN ANNOUNCEMENT"
                     ) : (
-                      isUrgent ? "🚨 HIGH SEVERITY ALERT" : "⚠️ CHECK REQUIRED"
+                      isUrgent ? "HIGH SEVERITY ALERT" : "CHECK REQUIRED"
                     )}
                   </span>
                   <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 600 }}>
@@ -3540,7 +3563,7 @@ function Notify({ shop, t, T, isDemo }) {
             gap: 6,
           }}
         >
-          <span>🔔</span> Enable Instant Push Notifications
+          Enable Instant Push Notifications
         </button>
       )}
     </div>
