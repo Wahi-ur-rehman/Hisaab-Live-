@@ -1451,6 +1451,7 @@ function ReportsTabContent({
   const [items, setItems] = useState([]);
   const [monthSummary, setMonthSummary] = useState(null);
   const [downloading, setDownloading] = useState(false);
+  const [statementReady, setStatementReady] = useState(null);
 
   useEffect(() => {
     if (isDemo) {
@@ -1497,7 +1498,7 @@ function ReportsTabContent({
   const handleDownloadPdf = async () => {
     setDownloading(true);
     try {
-      await generateMonthlyPdf({
+      const res = await generateMonthlyPdf({
         shopName: shop ? shop.shop_name : "Al-Madina General Store",
         shopCode: shop ? shop.shop_code : "G10",
         month: ym,
@@ -1509,12 +1510,23 @@ function ReportsTabContent({
         items,
         customers,
       });
+      if (res && res.blobUrl) {
+        setStatementReady(res);
+      }
     } catch (e) {
       console.error("PDF generation failed:", e);
       alert("Failed to generate PDF: " + (e.message || e));
     } finally {
       setDownloading(false);
     }
+  };
+
+  const shareToWhatsApp = () => {
+    const totalReceivable = customers.reduce((s, c) => s + (Number(c.balance) > 0 ? Number(c.balance) : 0), 0);
+    const totalAdvance = customers.reduce((s, c) => s + (Number(c.balance) < 0 ? Math.abs(Number(c.balance)) : 0), 0);
+    const text = `📊 *HisaabLive Monthly Statement — ${ym}*\n🏪 *Shop:* ${shop ? shop.shop_name : "Al-Madina Store"} (${shop ? shop.shop_code : "G10"})\n\n💰 *Total Sale:* Rs. ${Math.round(totalSale).toLocaleString()}\n📉 *Total Kharcha:* Rs. ${Math.round(totalExpense).toLocaleString()}\n✨ *Net Profit:* Rs. ${Math.round(netProfit).toLocaleString()} (${margin}%)\n\n📒 *Personal Khata Ledger:*\n• Total Baqaya: Rs. ${Math.round(totalReceivable).toLocaleString()}\n• Advance Received: +Rs. ${Math.round(totalAdvance).toLocaleString()}\n• Active Accounts: ${customers.length}\n\nGenerated via HisaabLive App`;
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
   };
 
   return (
@@ -1537,6 +1549,31 @@ function ReportsTabContent({
             <span>{downloading ? "Preparing..." : (t.download_pdf || "Download PDF")}</span>
           </button>
         </div>
+
+        {statementReady && (
+          <div className="mb-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col gap-2 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-emerald-400">Statement PDF Ready!</span>
+              <span className="text-[10px] text-slate-400 truncate max-w-[180px]">{statementReady.fileName}</span>
+            </div>
+            <div className="flex gap-2">
+              <a
+                href={statementReady.blobUrl}
+                download={statementReady.fileName}
+                className="flex-1 py-2 px-3 rounded-lg bg-[#1F5C4E] text-white text-center text-xs font-bold hover:bg-[#1F5C4E]/90 transition-all flex items-center justify-center gap-1.5"
+              >
+                <span>Save File</span>
+              </a>
+              <button
+                type="button"
+                onClick={shareToWhatsApp}
+                className="py-2 px-3 rounded-lg bg-[#25D366] text-white text-xs font-bold hover:bg-[#25D366]/90 transition-all flex items-center justify-center gap-1.5"
+              >
+                <span>WhatsApp</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Metrics Grid */}
         <div className="grid grid-cols-2 gap-2 mb-3">
@@ -2554,7 +2591,7 @@ async function generateMonthlyPdf({
           text: `HisaabLive Monthly Statement - ${month}`,
           files: [file],
         });
-        return;
+        return { blobUrl, fileName, doc };
       }
     } catch (shareErr) {
       if (shareErr.name !== "AbortError") {
@@ -2569,6 +2606,8 @@ async function generateMonthlyPdf({
       window.open(blobUrl, "_blank");
     } catch (_) {}
   }
+
+  return { blobUrl, fileName, doc };
 }
 
 // ---------------------------------------------------------------------------
@@ -2589,6 +2628,7 @@ function MonthlyStatementModal({
   const [items, setItems] = useState([]);
   const [selectedCat, setSelectedCat] = useState("All");
   const [downloading, setDownloading] = useState(false);
+  const [statementReady, setStatementReady] = useState(null);
 
   useEffect(() => {
     if (isDemo) {
@@ -2634,7 +2674,7 @@ function MonthlyStatementModal({
   const handleDownloadPdf = async () => {
     setDownloading(true);
     try {
-      await generateMonthlyPdf({
+      const res = await generateMonthlyPdf({
         shopName: shop ? shop.shop_name : "Al-Madina General Store",
         shopCode: shop ? shop.shop_code : "G10",
         month: ym,
@@ -2646,6 +2686,9 @@ function MonthlyStatementModal({
         items,
         customers,
       });
+      if (res && res.blobUrl) {
+        setStatementReady(res);
+      }
     } catch (err) {
       console.error(err);
       alert("Error generating PDF: " + (err.message || err));
@@ -2654,8 +2697,108 @@ function MonthlyStatementModal({
     }
   };
 
+  const shareToWhatsApp = () => {
+    const totalReceivable = customers.reduce((s, c) => s + (Number(c.balance) > 0 ? Number(c.balance) : 0), 0);
+    const totalAdvance = customers.reduce((s, c) => s + (Number(c.balance) < 0 ? Math.abs(Number(c.balance)) : 0), 0);
+    const text = `📊 *HisaabLive Monthly Statement — ${ym}*\n🏪 *Shop:* ${shop ? shop.shop_name : "Al-Madina Store"} (${shop ? shop.shop_code : "G10"})\n\n💰 *Total Sale:* Rs. ${Math.round(totalSale).toLocaleString()}\n📉 *Total Kharcha:* Rs. ${Math.round(totalExpense).toLocaleString()}\n✨ *Net Profit:* Rs. ${Math.round(netProfit).toLocaleString()} (${margin}%)\n\n📒 *Personal Khata Ledger:*\n• Total Baqaya: Rs. ${Math.round(totalReceivable).toLocaleString()}\n• Advance Received: +Rs. ${Math.round(totalAdvance).toLocaleString()}\n• Active Accounts: ${customers.length}\n\nGenerated via HisaabLive App`;
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
+  };
+
   const handlePrint = () => {
-    window.print();
+    try {
+      const totalReceivable = customers.reduce((s, c) => s + (Number(c.balance) > 0 ? Number(c.balance) : 0), 0);
+      const totalAdvance = customers.reduce((s, c) => s + (Number(c.balance) < 0 ? Math.abs(Number(c.balance)) : 0), 0);
+      const netLedger = totalReceivable - totalAdvance;
+
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      document.body.appendChild(iframe);
+      const frameDoc = iframe.contentWindow.document;
+      frameDoc.open();
+      frameDoc.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>HisaabLive Statement - ${ym}</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 24px; color: #0f172a; background: #ffffff; }
+              h1, h2, h3, h4 { margin: 0 0 8px 0; }
+              .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+              .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+              .card { border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; background: #f8fafc; }
+              .card-title { font-size: 11px; font-weight: bold; color: #64748b; text-transform: uppercase; }
+              .card-val { font-size: 18px; font-weight: 800; color: #0f172a; margin-top: 4px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+              th, td { border-bottom: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; }
+              th { background: #f1f5f9; font-weight: 700; color: #475569; }
+              .right { text-align: right; }
+              .page-break { page-break-before: always; break-before: page; margin-top: 24px; }
+            </style>
+          </head>
+          <body>
+            <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px;">
+              <h2 style="margin:0; font-size: 20px;">HisaabLive - Monthly Statement</h2>
+              <div style="font-size: 13px; color: #475569; margin-top: 4px;">Month: <b>${ym}</b> • ${shop ? shop.shop_name : "Al-Madina General Store"} (${shop ? shop.shop_code : "G10"})</div>
+            </div>
+            <div class="grid">
+              <div class="card"><div class="card-title">Total Sale</div><div class="card-val">Rs. ${Math.round(totalSale).toLocaleString()}</div></div>
+              <div class="card"><div class="card-title">Total Kharcha</div><div class="card-val" style="color: #e11d48;">Rs. ${Math.round(totalExpense).toLocaleString()}</div></div>
+              <div class="card"><div class="card-title">Net Profit (Munafa)</div><div class="card-val" style="color: #059669;">Rs. ${Math.round(netProfit).toLocaleString()}</div></div>
+              <div class="card"><div class="card-title">Profit Margin</div><div class="card-val" style="color: #1F5C4E;">${margin}%</div></div>
+            </div>
+            <h3 style="font-size: 14px; margin: 16px 0 8px;">Expense Breakdown by Category</h3>
+            <table>
+              <thead><tr><th>Category</th><th class="right">Amount (PKR)</th><th class="right">% of Total</th></tr></thead>
+              <tbody>
+                ${catBreakdown.filter(c => c.total > 0).map(c => `<tr><td>${c.name}</td><td class="right">Rs. ${Math.round(c.total).toLocaleString()}</td><td class="right">${totalExpense > 0 ? ((c.total/totalExpense)*100).toFixed(1) : 0}%</td></tr>`).join("")}
+              </tbody>
+            </table>
+            <h3 style="font-size: 14px; margin: 20px 0 8px;">Itemized Expense Records (${items.length} Transactions)</h3>
+            <table>
+              <thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="right">Amount (PKR)</th></tr></thead>
+              <tbody>
+                ${items.map(it => `<tr><td>${it.date || ""}</td><td>${it.title || ""}</td><td>${it.category || ""}</td><td class="right">Rs. ${Number(it.amount || 0).toLocaleString()}</td></tr>`).join("")}
+              </tbody>
+            </table>
+            <div class="page-break"></div>
+            <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px;">
+              <h2 style="margin:0; font-size: 18px;">Personal Khata Ledger & Advance Payment Summary</h2>
+              <div style="font-size: 13px; color: #475569; margin-top: 4px;">Registered Customer Credit & Advance Balances</div>
+            </div>
+            <div class="grid-3">
+              <div class="card"><div class="card-title">Total Baqaya (Owed)</div><div class="card-val" style="color: #d97706;">Rs. ${Math.round(totalReceivable).toLocaleString()}</div></div>
+              <div class="card"><div class="card-title">Total Advance Received</div><div class="card-val" style="color: #059669;">+Rs. ${Math.round(totalAdvance).toLocaleString()}</div></div>
+              <div class="card"><div class="card-title">Net Ledger Balance</div><div class="card-val" style="color: #1F5C4E;">Rs. ${Math.round(netLedger).toLocaleString()}</div></div>
+            </div>
+            <table>
+              <thead><tr><th>Customer Name</th><th>Phone</th><th>Status</th><th class="right">Balance (PKR)</th></tr></thead>
+              <tbody>
+                ${customers.map(c => {
+                  const b = Number(c.balance || 0);
+                  return `<tr><td>${c.name || ""}</td><td>${c.phone || "—"}</td><td>${b > 0 ? "Baqaya (Owes)" : b < 0 ? "Advance Received" : "Cleared"}</td><td class="right">${b < 0 ? "+Rs. " + Math.abs(b).toLocaleString() : "Rs. " + b.toLocaleString()}</td></tr>`;
+                }).join("")}
+              </tbody>
+            </table>
+          </body>
+        </html>
+      `);
+      frameDoc.close();
+      iframe.contentWindow.focus();
+      setTimeout(() => {
+        try { iframe.contentWindow.print(); } catch (_) { window.print(); }
+        setTimeout(() => { try { document.body.removeChild(iframe); } catch (_) {} }, 4000);
+      }, 300);
+      return;
+    } catch (e) {
+      console.warn("Iframe print error:", e);
+      window.print();
+    }
   };
 
   return (
@@ -2705,6 +2848,32 @@ function MonthlyStatementModal({
               <span>Print</span>
             </button>
           </div>
+
+          {/* Statement Ready Banner with Direct User Link & WhatsApp Button */}
+          {statementReady && (
+            <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col gap-2 animate-fade-in no-print">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-400">Statement Ready!</span>
+                <span className="text-[10px] text-slate-400 truncate max-w-[200px]">{statementReady.fileName}</span>
+              </div>
+              <div className="flex gap-2">
+                <a
+                  href={statementReady.blobUrl}
+                  download={statementReady.fileName}
+                  className="flex-1 py-2.5 px-3 min-h-[40px] rounded-lg bg-[#1F5C4E] text-white text-center text-xs font-bold hover:bg-[#1F5C4E]/90 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <span>Save PDF File</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={shareToWhatsApp}
+                  className="py-2.5 px-3 min-h-[40px] rounded-lg bg-[#25D366] text-white text-xs font-bold hover:bg-[#25D366]/90 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <span>WhatsApp</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* 4 Financial KPI Summary Cards */}
           <div className="grid grid-cols-2 gap-2 mb-4">
