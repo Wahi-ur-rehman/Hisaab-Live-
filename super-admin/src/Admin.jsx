@@ -432,6 +432,7 @@ function Dashboard({ S, themeMode, onToggleTheme }) {
           total_months_paid: 1,
           license_active: false,
           pin_code: pin,
+          inventory_enabled: false,
           created_at: new Date().toISOString(),
         });
       }
@@ -506,6 +507,16 @@ function Dashboard({ S, themeMode, onToggleTheme }) {
       catch { await deleteDoc(doc(db, "shops", s.id)); }
       showToast(`Shop '${s.shop_name}' deleted.`);
     }),
+  });
+
+  const toggleInventory = (s) => run(async () => {
+    const nextVal = !s.inventory_enabled;
+    try {
+      await updateDoc(doc(db, "shops", s.id), { inventory_enabled: nextVal });
+    } catch {
+      // offline or direct fallback
+    }
+    showToast(`${s.shop_name}: Inventory ${nextVal ? "Enabled" : "Disabled"}.`);
   });
 
   // Stats
@@ -656,8 +667,8 @@ function Dashboard({ S, themeMode, onToggleTheme }) {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
               <thead>
                 <tr style={{ background: S.cardSecondary, borderBottom: `1px solid ${S.border}` }}>
-                  {["Shop & Owner", "Code", "Status", "Expiry / MRR", "PC Agent", "Actions"].map((h, i) => (
-                    <th key={h} style={{ padding: "12px 16px", fontWeight: 700, color: S.textSec, textAlign: i === 5 ? "right" : "left", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>
+                  {["Shop & Owner", "Code", "Status", "Expiry / MRR", "PC Agent", "Inventory", "Actions"].map((h, i) => (
+                    <th key={h} style={{ padding: "12px 16px", fontWeight: 700, color: S.textSec, textAlign: i === 6 ? "right" : "left", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -731,6 +742,38 @@ function Dashboard({ S, themeMode, onToggleTheme }) {
                             {s.license_active ? "Connected" : "Not Set Up"}
                           </span>
                         </div>
+                      </td>
+
+                      {/* Inventory Feature Toggle */}
+                      <td style={{ padding: "12px 16px" }}>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => toggleInventory(s)}
+                          title={s.inventory_enabled ? "Click to disable inventory" : "Click to enable inventory"}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "4px 10px",
+                            borderRadius: 12,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: busy ? "not-allowed" : "pointer",
+                            background: s.inventory_enabled ? S.accentLight : S.cardSecondary,
+                            color: s.inventory_enabled ? S.accent : S.textMuted,
+                            border: `1px solid ${s.inventory_enabled ? S.accent : S.border}`,
+                            transition: "all 0.15s",
+                          }}
+                        >
+                          <span style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            background: s.inventory_enabled ? S.accent : S.textMuted,
+                          }} />
+                          {s.inventory_enabled ? "Enabled" : "Disabled"}
+                        </button>
                       </td>
 
                       {/* Actions: One clear action + secondary actions */}

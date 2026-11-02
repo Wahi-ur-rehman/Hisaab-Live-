@@ -125,7 +125,15 @@ const DEMO_SHOP = {
   current_expiry: "2026-11-26",
   license_active: true,
   live_banner: false,
+  inventory_enabled: true,
 };
+
+const DEMO_INVENTORY_INITIAL = [
+  { id: "inv1", name: "Super Basmati Rice 5kg", quantity: 18, threshold: 5, unit: "bags" },
+  { id: "inv2", name: "Habib Cooking Oil 5L", quantity: 3, threshold: 5, unit: "tins" },
+  { id: "inv3", name: "Fine White Sugar 50kg", quantity: 2, threshold: 4, unit: "sacks" },
+  { id: "inv4", name: "Tapal Danedar Tea 400g", quantity: 24, threshold: 8, unit: "packs" },
+];
 
 const DEMO_EXPENSES_INITIAL = [
   { id: "e1", title: "Generator Fuel & Mobil Oil", amount: 2500, category: "Maintenance", time: "11:30 AM", date: todayPK() },
@@ -301,12 +309,15 @@ function AppContent() {
   const [demoCustomers, setDemoCustomers] = useState(DEMO_CUSTOMERS_INITIAL);
   const [demoEntries, setDemoEntries] = useState(DEMO_ENTRIES_INITIAL);
   const [demoAlerts, setDemoAlerts] = useState(DEMO_ALERTS_INITIAL);
+  const [demoInventory, setDemoInventory] = useState(DEMO_INVENTORY_INITIAL);
 
   // Drilldown Expense Breakdown Modal State
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   // Monthly Hisaab & Kharcha Statement Modal State
   const [showMonthlyModal, setShowMonthlyModal] = useState(false);
   const [monthlyData, setMonthlyData] = useState({ mSale: 0, mExp: 0 });
+  // Inventory Management Modal State
+  const [showInventoryModal, setShowInventoryModal] = useState(false);
   // Logout All Confirmation Sheet State
   const [showLogoutAllSheet, setShowLogoutAllSheet] = useState(false);
 
@@ -329,18 +340,51 @@ function AppContent() {
     @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
     @media print {
-      body { background: white !important; color: black !important; }
-      .no-print { display: none !important; }
+      body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .fixed.inset-0 {
+        position: static !important;
+        background: transparent !important;
+        backdrop-filter: none !important;
+      }
       #printable-statement {
         position: static !important;
-        background: white !important;
-        color: black !important;
+        background: #ffffff !important;
+        color: #0f172a !important;
         padding: 0 !important;
+        width: 100% !important;
         max-width: 100% !important;
         max-height: none !important;
+        height: auto !important;
         overflow: visible !important;
         box-shadow: none !important;
         border: none !important;
+        border-radius: 0 !important;
+      }
+      #printable-statement * {
+        overflow: visible !important;
+      }
+      #printable-statement .bg-slate-800\\/50,
+      #printable-statement .bg-slate-800\\/40,
+      #printable-statement .bg-slate-800\\/80 {
+        background: #f8fafc !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #0f172a !important;
+      }
+      #printable-statement .text-slate-100,
+      #printable-statement .text-slate-200,
+      #printable-statement .text-slate-300 {
+        color: #0f172a !important;
+      }
+      #printable-statement .text-slate-400 {
+        color: #64748b !important;
       }
     }
   `;
@@ -478,6 +522,32 @@ function AppContent() {
   }, [shopId, isDemo]);
 
   const activeKhataCustomers = isDemo ? demoCustomers : khataCustomers;
+
+  // Firestore live inventory listener
+  const [inventory, setInventory] = useState([]);
+  const isInventoryEnabled = isDemo ? Boolean(demoShop?.inventory_enabled ?? true) : Boolean(shop?.inventory_enabled);
+
+  useEffect(() => {
+    if (isDemo) {
+      setInventory(demoInventory);
+      return;
+    }
+    if (!shopId || !shop?.inventory_enabled) {
+      setInventory([]);
+      return;
+    }
+    const qInv = query(collection(db, "shops", shopId, "inventory"), orderBy("name", "asc"));
+    return onSnapshot(
+      qInv,
+      (s) => setInventory(s.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      (e) => console.warn("Inventory listener error:", e)
+    );
+  }, [shopId, isDemo, shop?.inventory_enabled, demoInventory]);
+
+  const activeInventory = isDemo ? demoInventory : inventory;
+  const lowStockItems = isInventoryEnabled
+    ? activeInventory.filter((it) => Number(it.quantity) <= Number(it.threshold))
+    : [];
 
   // Midnight date rollover
   useEffect(() => {
@@ -948,6 +1018,10 @@ function AppContent() {
               setDemoExpenses={setDemoExpenses}
               demoCustomers={demoCustomers}
               customers={activeKhataCustomers}
+              isInventoryEnabled={isInventoryEnabled}
+              inventory={activeInventory}
+              lowStockItems={lowStockItems}
+              onOpenInventory={() => setShowInventoryModal(true)}
               onAlerts={() => setShowAlertsModal(true)}
               onOpenExpenseDetails={() => setShowExpenseModal(true)}
               onOpenMonthlyStatement={(sale, exp) => {
@@ -1125,6 +1199,20 @@ function AppContent() {
             demoExpenses={demoExpenses}
             customers={activeKhataCustomers}
             onClose={() => setShowMonthlyModal(false)}
+          />
+        )}
+
+        {/* Inventory & Low-Stock Management Modal */}
+        {showInventoryModal && isInventoryEnabled && (
+          <InventoryModal
+            shop={shop}
+            shopId={shopId}
+            isDemo={isDemo}
+            inventory={activeInventory}
+            setDemoInventory={setDemoInventory}
+            T={T}
+            t={t}
+            onClose={() => setShowInventoryModal(false)}
           />
         )}
 
@@ -1558,6 +1646,10 @@ function Hisaab({
   setDemoExpenses,
   demoCustomers,
   customers = [],
+  isInventoryEnabled = false,
+  inventory = [],
+  lowStockItems = [],
+  onOpenInventory,
   onAlerts,
   onOpenExpenseDetails,
   onOpenMonthlyStatement,
@@ -1601,6 +1693,30 @@ function Hisaab({
 
   return (
     <div>
+      {/* Low-Stock Alert Warning Banner */}
+      {isInventoryEnabled && lowStockItems.length > 0 && (
+        <div
+          onClick={onOpenInventory}
+          className="cursor-pointer mb-4 p-3.5 rounded-xl bg-amber-warm/15 border border-amber-warm/40 text-amber-warm flex items-center justify-between gap-3 transition-all active:scale-[0.99]"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-warm flex-shrink-0 animate-pulse" />
+            <div className="min-w-0">
+              <div className="font-bold text-xs leading-snug">
+                Low-Stock Alert: {lowStockItems.length} {lowStockItems.length === 1 ? "item is" : "items are"} running low!
+              </div>
+              <div className="text-[11px] text-amber-warm/80 truncate mt-0.5">
+                {lowStockItems.slice(0, 3).map((it) => `${it.name} (${it.quantity} ${it.unit || "pcs"} left)`).join(", ")}
+                {lowStockItems.length > 3 && ` +${lowStockItems.length - 3} more`}
+              </div>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-amber-warm bg-amber-warm/20 border border-amber-warm/40 px-2.5 py-1 rounded-lg flex-shrink-0">
+            Manage &rarr;
+          </span>
+        </div>
+      )}
+
       {/* Missing Sales Warning Banner (Rose Crimson) */}
       {missing > 0 && (
         <div
@@ -1714,6 +1830,43 @@ function Hisaab({
             </div>
           </div>
           <span className="text-xs text-slate-400 font-medium">Baqaya</span>
+        </div>
+      )}
+
+      {/* Inventory & Stock Overview Card */}
+      {isInventoryEnabled && (
+        <div
+          onClick={onOpenInventory}
+          className="rounded-xl bg-slate-card border border-slate-border hover:border-[#1F5C4E]/40 p-4 mb-4 cursor-pointer transition-all active:scale-[0.99] flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#1F5C4E]/15 border border-[#1F5C4E]/30 text-[#1F5C4E] flex items-center justify-center font-bold text-lg flex-shrink-0">
+              📦
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-300">
+                  Inventory & Stock Tracking
+                </span>
+                {lowStockItems.length > 0 ? (
+                  <span className="text-[10px] font-bold text-amber-warm bg-amber-warm/15 px-2 py-0.5 rounded-full border border-amber-warm/30">
+                    {lowStockItems.length} Low Stock
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-emerald-mint bg-emerald-mint/15 px-2 py-0.5 rounded-full border border-emerald-mint/30">
+                    All In Stock
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-slate-400 mt-1 font-medium">
+                {inventory.length} {inventory.length === 1 ? "Product" : "Products"} Tracked • Tap to manage stock
+              </div>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-[#1F5C4E] bg-[#1F5C4E]/15 border border-[#1F5C4E]/30 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+            <span>Manage</span>
+            <span>&rarr;</span>
+          </span>
         </div>
       )}
 
@@ -2380,43 +2533,42 @@ async function generateMonthlyPdf({
       if (shareErr.name === "AbortError") {
         return;
       }
-      console.warn("navigator.share failed, trying fallback:", shareErr);
+      console.warn("navigator.share failed, trying direct download:", shareErr);
     }
   }
 
-  // 2. Direct Anchor Download with ObjectURL (Standard browser download)
-  let downloadTriggered = false;
+  // 2. Official jsPDF save for standard desktop & mobile browsers
+  try {
+    doc.save(fileName);
+    return;
+  } catch (saveErr) {
+    console.warn("doc.save failed, trying blob anchor fallback:", saveErr);
+  }
+
+  // 3. Direct Anchor Download with ObjectURL (without target="_blank" so popup blocker doesn't intercept)
   try {
     const blobUrl = URL.createObjectURL(pdfBlob);
     const link = document.createElement("a");
     link.href = blobUrl;
     link.download = fileName;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
+    link.style.display = "none";
     document.body.appendChild(link);
     link.click();
-    downloadTriggered = true;
     setTimeout(() => {
       try {
         document.body.removeChild(link);
         URL.revokeObjectURL(blobUrl);
       } catch (_) {}
-    }, 4000);
+    }, 2000);
   } catch (linkErr) {
     console.warn("Anchor download failed:", linkErr);
-  }
-
-  // 3. Fallback: doc.save
-  if (!downloadTriggered) {
     try {
-      doc.save(fileName);
-    } catch (saveErr) {
-      console.warn("doc.save failed:", saveErr);
-      try {
-        const dataUri = doc.output("datauristring");
-        window.open(dataUri, "_blank");
-      } catch (_) {}
-    }
+      const dataUri = doc.output("datauristring");
+      const win = window.open();
+      if (win) {
+        win.document.write(`<iframe src="${dataUri}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+      }
+    } catch (_) {}
   }
 }
 
@@ -2514,8 +2666,8 @@ function MonthlyStatementModal({
         className="bg-slate-card w-full max-w-lg max-h-[92vh] rounded-t-3xl flex flex-col overflow-hidden shadow-2xl border-t border-x border-slate-border animate-slide-up pb-safe"
       >
         {/* Header */}
-        <div className="p-4 border-b border-slate-border no-print">
-          <div className="w-10 h-1 rounded-full bg-slate-700/60 mx-auto mb-3" />
+        <div className="p-4 border-b border-slate-border">
+          <div className="w-10 h-1 rounded-full bg-slate-700/60 mx-auto mb-3 no-print" />
           <div className="flex justify-between items-center">
             <div>
               <h3 className="m-0 text-base font-bold text-slate-100">Monthly Statement</h3>
@@ -2526,7 +2678,7 @@ function MonthlyStatementModal({
             <button
               type="button"
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-bold flex items-center justify-center text-sm hover:bg-slate-700 active:scale-95 transition-all"
+              className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-bold flex items-center justify-center text-sm hover:bg-slate-700 active:scale-95 transition-all no-print"
             >
               ✕
             </button>
@@ -2684,6 +2836,397 @@ function MonthlyStatementModal({
             className="w-full min-h-[44px] rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 font-bold text-xs border border-slate-700 active:scale-[0.99] transition-all"
           >
             Close Statement
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Inventory & Low-Stock Management Modal
+// ---------------------------------------------------------------------------
+function InventoryModal({
+  shop,
+  shopId,
+  isDemo,
+  inventory = [],
+  setDemoInventory,
+  T,
+  t,
+  onClose,
+}) {
+  const [filter, setFilter] = useState("all");
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [name, setName] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [threshold, setThreshold] = useState("5");
+  const [unit, setUnit] = useState("pcs");
+  const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const lowStockCount = inventory.filter(
+    (it) => Number(it.quantity) <= Number(it.threshold)
+  ).length;
+
+  const filteredItems = inventory.filter((it) => {
+    const matchesSearch =
+      !search.trim() ||
+      it.name?.toLowerCase().includes(search.trim().toLowerCase());
+    if (!matchesSearch) return false;
+    if (filter === "low") {
+      return Number(it.quantity) <= Number(it.threshold);
+    }
+    return true;
+  });
+
+  const handleAddProduct = async (e) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      alert("Please enter product name");
+      return;
+    }
+    const parsedQty = Math.max(0, parseInt(quantity, 10) || 0);
+    const parsedThresh = Math.max(0, parseInt(threshold, 10) || 0);
+
+    setSaving(true);
+    try {
+      if (isDemo) {
+        const newItem = {
+          id: "inv_" + Date.now(),
+          name: name.trim(),
+          quantity: parsedQty,
+          threshold: parsedThresh,
+          unit: unit.trim() || "pcs",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        setDemoInventory((prev) => [newItem, ...prev]);
+      } else {
+        const sid = shopId || localStorage.getItem("active_shop_id");
+        if (!sid) throw new Error("Shop session not found. Please log in again.");
+        await addDoc(collection(db, "shops", sid, "inventory"), {
+          name: name.trim(),
+          quantity: parsedQty,
+          threshold: parsedThresh,
+          unit: unit.trim() || "pcs",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      }
+      setName("");
+      setQuantity("");
+      setThreshold("5");
+      setUnit("pcs");
+      setShowAddForm(false);
+    } catch (err) {
+      alert("Failed to save product: " + (err.message || err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateStock = async (item, delta) => {
+    const newQty = Math.max(0, Number(item.quantity || 0) + delta);
+    if (isDemo) {
+      setDemoInventory((prev) =>
+        prev.map((it) => (it.id === item.id ? { ...it, quantity: newQty } : it))
+      );
+    } else {
+      const sid = shopId || localStorage.getItem("active_shop_id");
+      try {
+        await updateDoc(doc(db, "shops", sid, "inventory", item.id), {
+          quantity: newQty,
+          updated_at: new Date().toISOString(),
+        });
+      } catch (err) {
+        alert("Failed to update stock: " + (err.message || err));
+      }
+    }
+  };
+
+  const deleteItem = async (item) => {
+    if (!window.confirm(`Are you sure you want to delete '${item.name}'?`)) return;
+    if (isDemo) {
+      setDemoInventory((prev) => prev.filter((it) => it.id !== item.id));
+    } else {
+      const sid = shopId || localStorage.getItem("active_shop_id");
+      try {
+        await deleteDoc(doc(db, "shops", sid, "inventory", item.id));
+      } catch (err) {
+        alert("Failed to delete product: " + (err.message || err));
+      }
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center backdrop-blur-md animate-fade-in">
+      <div className="bg-slate-card w-full max-w-lg max-h-[92vh] rounded-t-3xl flex flex-col overflow-hidden shadow-2xl border-t border-x border-slate-border animate-slide-up pb-safe">
+        {/* Header */}
+        <div className="p-4 border-b border-slate-border">
+          <div className="w-10 h-1 rounded-full bg-slate-700/60 mx-auto mb-3" />
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="m-0 text-base font-bold text-slate-100 flex items-center gap-2">
+                <span>Inventory & Stock</span>
+                {lowStockCount > 0 && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-warm/15 text-amber-warm border border-amber-warm/30">
+                    {lowStockCount} Low
+                  </span>
+                )}
+              </h3>
+              <p className="m-0 text-xs text-slate-400 mt-0.5">
+                {shop ? shop.shop_name : "Al-Madina Store"} • {inventory.length} Products
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-bold flex items-center justify-center text-sm hover:bg-slate-700 active:scale-95 transition-all"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        {/* Action Bar: Search & Add Toggle */}
+        <div className="p-3 border-b border-slate-border bg-slate-900/40 flex gap-2">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search products..."
+            className="flex-1 px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-100 text-xs placeholder-slate-500 focus:outline-none focus:border-[#1F5C4E]"
+          />
+          <button
+            type="button"
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="px-3 py-2 rounded-xl bg-[#1F5C4E] text-white font-bold text-xs hover:bg-[#1F5C4E]/90 active:scale-95 transition-all flex items-center gap-1"
+          >
+            <span>{showAddForm ? "Cancel" : "+ Add Product"}</span>
+          </button>
+        </div>
+
+        {/* Filter Pills */}
+        <div className="px-4 py-2 bg-slate-850 border-b border-slate-border flex gap-2">
+          <button
+            type="button"
+            onClick={() => setFilter("all")}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+              filter === "all"
+                ? "bg-[#1F5C4E] text-white"
+                : "bg-slate-800 text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            All Products ({inventory.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("low")}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              filter === "low"
+                ? "bg-amber-warm text-slate-950"
+                : "bg-slate-800 text-slate-400 hover:text-amber-warm"
+            }`}
+          >
+            <span>Low Stock</span>
+            {lowStockCount > 0 && (
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filter === "low" ? "bg-black/20" : "bg-amber-warm/20 text-amber-warm"}`}>
+                {lowStockCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Add Product Form Collapse */}
+        {showAddForm && (
+          <form onSubmit={handleAddProduct} className="p-4 bg-slate-850 border-b border-slate-border animate-fade-in">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-3 m-0">
+              New Inventory Product
+            </h4>
+            <div className="grid grid-cols-1 gap-2.5">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                  Product / Item Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Sugar 50kg, Cooking Oil 5L, Dal Chana..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-xs focus:outline-none focus:border-[#1F5C4E]"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                    Current Stock
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    placeholder="0"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-xs focus:outline-none focus:border-[#1F5C4E]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                    Min Alert (Threshold)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={threshold}
+                    onChange={(e) => setThreshold(e.target.value)}
+                    placeholder="5"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-xs focus:outline-none focus:border-[#1F5C4E]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                    Unit
+                  </label>
+                  <select
+                    value={unit}
+                    onChange={(e) => setUnit(e.target.value)}
+                    className="w-full px-2 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-xs focus:outline-none focus:border-[#1F5C4E]"
+                  >
+                    <option value="pcs">pcs</option>
+                    <option value="kg">kg</option>
+                    <option value="liters">liters</option>
+                    <option value="packs">packs</option>
+                    <option value="bags">bags</option>
+                    <option value="sacks">sacks</option>
+                    <option value="tins">tins</option>
+                    <option value="cartons">cartons</option>
+                    <option value="boxes">boxes</option>
+                  </select>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full mt-1 py-2.5 rounded-xl bg-[#1F5C4E] text-white font-bold text-xs hover:bg-[#1F5C4E]/90 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                <span>{saving ? "Saving..." : "Save Product"}</span>
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Scrollable Inventory List */}
+        <div className="p-4 overflow-y-auto flex-1">
+          {filteredItems.length === 0 ? (
+            <div className="text-center py-10 text-slate-400">
+              <div className="text-3xl mb-2">📦</div>
+              <p className="text-xs font-semibold m-0">
+                {filter === "low"
+                  ? "Great! No low-stock products right now."
+                  : "No inventory products added yet."}
+              </p>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Tap '+ Add Product' above to start tracking stock.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {filteredItems.map((item) => {
+                const qty = Number(item.quantity || 0);
+                const thresh = Number(item.threshold || 0);
+                const isOutOfStock = qty <= 0;
+                const isLow = !isOutOfStock && qty <= thresh;
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`p-3 rounded-xl border flex items-center justify-between gap-3 transition-all ${
+                      isOutOfStock
+                        ? "bg-rose-crimson/10 border-rose-crimson/40"
+                        : isLow
+                        ? "bg-amber-warm/10 border-amber-warm/40"
+                        : "bg-slate-800/40 border-slate-700/60"
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-slate-100 truncate">
+                          {item.name}
+                        </span>
+                        {isOutOfStock ? (
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-rose-crimson/20 text-rose-crimson border border-rose-crimson/40">
+                            Out of Stock
+                          </span>
+                        ) : isLow ? (
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-warm/20 text-amber-warm border border-amber-warm/40">
+                            Low Stock
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-mint/15 text-emerald-mint border border-emerald-mint/30">
+                            In Stock
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-0.5">
+                        Min Alert: &le; {thresh} {item.unit || "pcs"}
+                      </div>
+                    </div>
+
+                    {/* Quick Stepper & Delete */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="flex items-center bg-slate-900 border border-slate-700 rounded-lg overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => updateStock(item, -1)}
+                          disabled={qty <= 0}
+                          className="w-7 h-7 flex items-center justify-center font-black text-slate-300 hover:bg-slate-800 active:scale-95 disabled:opacity-30"
+                        >
+                          -
+                        </button>
+                        <span className="px-2 text-xs font-black text-slate-100 min-w-[32px] text-center">
+                          {qty}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => updateStock(item, 1)}
+                          className="w-7 h-7 flex items-center justify-center font-black text-slate-300 hover:bg-slate-800 active:scale-95"
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => deleteItem(item)}
+                        title="Delete product"
+                        className="w-7 h-7 rounded-lg bg-slate-800/80 border border-slate-700 text-slate-400 hover:text-rose-crimson hover:border-rose-crimson/40 flex items-center justify-center text-xs active:scale-95 transition-all"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-3.5 border-t border-slate-border bg-slate-850">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full min-h-[44px] rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 font-bold text-xs border border-slate-700 active:scale-[0.99] transition-all"
+          >
+            Close
           </button>
         </div>
       </div>

@@ -66,6 +66,9 @@ service cloud.firestore {
       match /alerts/{alertId} {
         allow read, write: if true;
       }
+      match /inventory/{itemId} {
+        allow read, write: if true;
+      }
       match /khata_customers/{customerId} {
         allow read, write: if true;
 
