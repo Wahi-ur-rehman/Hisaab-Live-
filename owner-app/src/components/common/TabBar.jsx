@@ -72,6 +72,29 @@ const TABS = [
     ),
   },
   {
+    id: 'inventory',
+    key: 'tab_inventory',
+    labelEn: 'Inventory',
+    labelUr: 'انوینٹری',
+    icon: (isActive) => (
+      <svg
+        className={`w-5 h-5 transition-transform duration-150 ${
+          isActive ? 'scale-105 text-[#1F5C4E]' : 'text-slate-muted'
+        }`}
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={isActive ? 2.5 : 2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+        />
+      </svg>
+    ),
+  },
+  {
     id: 'reports',
     key: 'tab_reports',
     labelEn: 'Monthly Reports',
@@ -102,13 +125,34 @@ export default function TabBar({
   unseenAlerts = 0,
 }) {
   const { lang, t, isRtl } = useLanguage();
+  const activeTabRef = React.useRef(null);
+  const navContainerRef = React.useRef(null);
+
+  // Smoothly center the active tab into view whenever tab changes
+  React.useEffect(() => {
+    if (activeTabRef.current) {
+      activeTabRef.current.scrollIntoView({
+        behavior: 'smooth',
+        inline: 'center',
+        block: 'nearest',
+      });
+    }
+  }, [activeTab]);
 
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-30 pb-safe bg-slate-card/95 backdrop-blur-md border-t border-slate-border shadow-lg transition-colors duration-200"
       aria-label="Bottom Navigation Tabs"
     >
-      <div className="max-w-md mx-auto flex items-center justify-around px-2">
+      <div
+        ref={navContainerRef}
+        className="max-w-md mx-auto flex items-center justify-between overflow-x-auto no-scrollbar scroll-smooth px-1.5 py-1 touch-pan-x"
+        style={{
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}
+      >
         {TABS.map((tab) => {
           const isActive = activeTab === tab.id;
           const label = isRtl
@@ -118,10 +162,11 @@ export default function TabBar({
           return (
             <button
               key={tab.id}
+              ref={isActive ? activeTabRef : null}
               onClick={() => onTabChange && onTabChange(tab.id)}
               role="tab"
               aria-selected={isActive}
-              className={`flex-1 flex flex-col items-center justify-center min-h-[48px] min-w-[48px] py-2 px-1 relative transition-all duration-150 active:scale-95 group focus:outline-none`}
+              className={`flex-1 shrink-0 min-w-[66px] flex flex-col items-center justify-center min-h-[48px] py-1.5 px-1 relative transition-all duration-150 active:scale-95 group focus:outline-none`}
             >
               {/* Active Accent Indicator Bar */}
               {isActive && (

@@ -250,7 +250,7 @@ function AppContent() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // Swipe Gestures Between Primary Tabs
-  const TABS_ORDER = ["hisaab", "expenses", "khata", "reports"];
+  const TABS_ORDER = ["hisaab", "expenses", "khata", "inventory", "reports"];
   const touchStartRef = React.useRef({ x: 0, y: 0, time: 0 });
 
   const handleTouchStart = (e) => {
@@ -346,19 +346,20 @@ function AppContent() {
         margin: 0 !important;
         padding: 0 !important;
       }
-      .no-print {
+      .no-print, nav, footer, header {
         display: none !important;
       }
       .fixed.inset-0 {
         position: static !important;
         background: transparent !important;
         backdrop-filter: none !important;
+        display: block !important;
       }
       #printable-statement {
         position: static !important;
         background: #ffffff !important;
         color: #0f172a !important;
-        padding: 0 !important;
+        padding: 16px !important;
         width: 100% !important;
         max-width: 100% !important;
         max-height: none !important;
@@ -373,7 +374,8 @@ function AppContent() {
       }
       #printable-statement .bg-slate-800\\/50,
       #printable-statement .bg-slate-800\\/40,
-      #printable-statement .bg-slate-800\\/80 {
+      #printable-statement .bg-slate-800\\/80,
+      #printable-statement .bg-slate-850 {
         background: #f8fafc !important;
         border: 1px solid #cbd5e1 !important;
         color: #0f172a !important;
@@ -1021,7 +1023,7 @@ function AppContent() {
               isInventoryEnabled={isInventoryEnabled}
               inventory={activeInventory}
               lowStockItems={lowStockItems}
-              onOpenInventory={() => setShowInventoryModal(true)}
+              onOpenInventory={() => setView("inventory")}
               onAlerts={() => setShowAlertsModal(true)}
               onOpenExpenseDetails={() => setShowExpenseModal(true)}
               onOpenMonthlyStatement={(sale, exp) => {
@@ -1056,6 +1058,19 @@ function AppContent() {
             />
           )}
 
+          {view === "inventory" && (
+            <InventoryTabContent
+              shop={shop}
+              shopId={shopId}
+              isDemo={isDemo}
+              inventory={activeInventory}
+              setDemoInventory={setDemoInventory}
+              T={T}
+              t={t}
+              isInventoryEnabled={isInventoryEnabled}
+            />
+          )}
+
           {view === "reports" && (
             <ReportsTabContent
               shop={shop}
@@ -1066,6 +1081,10 @@ function AppContent() {
               isDemo={isDemo}
               demoExpenses={demoExpenses}
               customers={activeKhataCustomers}
+              onOpenStatement={(sale, exp) => {
+                setMonthlyData({ mSale: sale, mExp: exp });
+                setShowMonthlyModal(true);
+              }}
             />
           )}
 
@@ -1446,6 +1465,7 @@ function ReportsTabContent({
   isDemo,
   demoExpenses,
   customers = [],
+  onOpenStatement,
 }) {
   const ym = today.slice(0, 7);
   const [items, setItems] = useState([]);
@@ -1510,7 +1530,7 @@ function ReportsTabContent({
         items,
         customers,
       });
-      if (res && res.blobUrl) {
+      if (res && (res.pdfDataUri || res.blobUrl)) {
         setStatementReady(res);
       }
     } catch (e) {
@@ -1540,14 +1560,23 @@ function ReportsTabContent({
             </h3>
             <span className="text-xs text-slate-400 font-medium">{ym}</span>
           </div>
-          <button
-            type="button"
-            onClick={handleDownloadPdf}
-            disabled={downloading}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-[#1F5C4E] text-white hover:bg-[#1F5C4E]/90 transition-all active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
-          >
-            <span>{downloading ? "Preparing..." : (t.download_pdf || "Download PDF")}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onOpenStatement && onOpenStatement(totalSale, totalExpense)}
+              className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all active:scale-95 flex items-center gap-1.5 shadow-sm"
+            >
+              <span>Statement & Print</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={downloading}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-[#1F5C4E] text-white hover:bg-[#1F5C4E]/90 transition-all active:scale-95 flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
+            >
+              <span>{downloading ? "Preparing..." : (t.download_pdf || "Download PDF")}</span>
+            </button>
+          </div>
         </div>
 
         {statementReady && (
@@ -1556,18 +1585,26 @@ function ReportsTabContent({
               <span className="text-xs font-bold text-emerald-400">Statement PDF Ready!</span>
               <span className="text-[10px] text-slate-400 truncate max-w-[180px]">{statementReady.fileName}</span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <a
+                href={statementReady.pdfDataUri || statementReady.blobUrl}
+                download={statementReady.fileName}
+                className="flex-1 min-w-[110px] py-2 px-3 rounded-lg bg-[#1F5C4E] text-white text-center text-xs font-bold hover:bg-[#1F5C4E]/90 transition-all flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                <span>Download File</span>
+              </a>
               <a
                 href={statementReady.blobUrl}
-                download={statementReady.fileName}
-                className="flex-1 py-2 px-3 rounded-lg bg-[#1F5C4E] text-white text-center text-xs font-bold hover:bg-[#1F5C4E]/90 transition-all flex items-center justify-center gap-1.5"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="py-2 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition-all flex items-center justify-center gap-1.5 shadow-sm"
               >
-                <span>Save File</span>
+                <span>Open Viewer</span>
               </a>
               <button
                 type="button"
                 onClick={shareToWhatsApp}
-                className="py-2 px-3 rounded-lg bg-[#25D366] text-white text-xs font-bold hover:bg-[#25D366]/90 transition-all flex items-center justify-center gap-1.5"
+                className="py-2 px-3 rounded-lg bg-[#25D366] text-white text-xs font-bold hover:bg-[#25D366]/90 transition-all flex items-center justify-center gap-1.5 shadow-sm"
               >
                 <span>WhatsApp</span>
               </button>
@@ -2554,60 +2591,32 @@ async function generateMonthlyPdf({
   const fileName = `HisaabLive-Statement-${safeCode}-${month}.pdf`;
   const pdfBlob = doc.output("blob");
   const blobUrl = URL.createObjectURL(pdfBlob);
+  const pdfDataUri = doc.output("datauristring");
 
-  // 1. Direct Anchor tag download (Universal browser support)
-  let downloadTriggered = false;
+  // Universal download trigger: Data URI + Blob Anchor
   try {
     const link = document.createElement("a");
-    link.href = blobUrl;
+    link.href = pdfDataUri;
     link.download = fileName;
+    link.target = "_blank";
     link.rel = "noopener";
     document.body.appendChild(link);
     link.click();
-    downloadTriggered = true;
     setTimeout(() => {
       try { document.body.removeChild(link); } catch (_) {}
-    }, 4000);
+    }, 2000);
   } catch (err) {
-    console.warn("Direct anchor download error:", err);
+    console.warn("Direct Data URI download error:", err);
   }
 
-  // 2. jsPDF native save() method
+  // jsPDF native save() method as secondary trigger
   try {
     doc.save(fileName);
-    downloadTriggered = true;
   } catch (err) {
     console.warn("jsPDF save error:", err);
   }
 
-  // 3. Mobile Web Share API: For mobile devices where blob downloads are suppressed
-  const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
-  if (isMobile && typeof navigator !== "undefined" && typeof navigator.share === "function" && typeof File !== "undefined") {
-    try {
-      const file = new File([pdfBlob], fileName, { type: "application/pdf" });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: fileName,
-          text: `HisaabLive Monthly Statement - ${month}`,
-          files: [file],
-        });
-        return { blobUrl, fileName, doc };
-      }
-    } catch (shareErr) {
-      if (shareErr.name !== "AbortError") {
-        console.warn("navigator.share fallback failed:", shareErr);
-      }
-    }
-  }
-
-  // 4. Fail-safe preview: If download couldn't trigger or on mobile WebView, open PDF window/viewer
-  if (isMobile) {
-    try {
-      window.open(blobUrl, "_blank");
-    } catch (_) {}
-  }
-
-  return { blobUrl, fileName, doc };
+  return { blobUrl, pdfDataUri, pdfBlob, fileName, doc };
 }
 
 // ---------------------------------------------------------------------------
@@ -2686,7 +2695,7 @@ function MonthlyStatementModal({
         items,
         customers,
       });
-      if (res && res.blobUrl) {
+      if (res && (res.pdfDataUri || res.blobUrl)) {
         setStatementReady(res);
       }
     } catch (err) {
@@ -2707,97 +2716,9 @@ function MonthlyStatementModal({
 
   const handlePrint = () => {
     try {
-      const totalReceivable = customers.reduce((s, c) => s + (Number(c.balance) > 0 ? Number(c.balance) : 0), 0);
-      const totalAdvance = customers.reduce((s, c) => s + (Number(c.balance) < 0 ? Math.abs(Number(c.balance)) : 0), 0);
-      const netLedger = totalReceivable - totalAdvance;
-
-      const iframe = document.createElement("iframe");
-      iframe.style.position = "fixed";
-      iframe.style.right = "0";
-      iframe.style.bottom = "0";
-      iframe.style.width = "0";
-      iframe.style.height = "0";
-      iframe.style.border = "0";
-      document.body.appendChild(iframe);
-      const frameDoc = iframe.contentWindow.document;
-      frameDoc.open();
-      frameDoc.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>HisaabLive Statement - ${ym}</title>
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 24px; color: #0f172a; background: #ffffff; }
-              h1, h2, h3, h4 { margin: 0 0 8px 0; }
-              .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
-              .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
-              .card { border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; background: #f8fafc; }
-              .card-title { font-size: 11px; font-weight: bold; color: #64748b; text-transform: uppercase; }
-              .card-val { font-size: 18px; font-weight: 800; color: #0f172a; margin-top: 4px; }
-              table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
-              th, td { border-bottom: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; }
-              th { background: #f1f5f9; font-weight: 700; color: #475569; }
-              .right { text-align: right; }
-              .page-break { page-break-before: always; break-before: page; margin-top: 24px; }
-            </style>
-          </head>
-          <body>
-            <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px;">
-              <h2 style="margin:0; font-size: 20px;">HisaabLive - Monthly Statement</h2>
-              <div style="font-size: 13px; color: #475569; margin-top: 4px;">Month: <b>${ym}</b> • ${shop ? shop.shop_name : "Al-Madina General Store"} (${shop ? shop.shop_code : "G10"})</div>
-            </div>
-            <div class="grid">
-              <div class="card"><div class="card-title">Total Sale</div><div class="card-val">Rs. ${Math.round(totalSale).toLocaleString()}</div></div>
-              <div class="card"><div class="card-title">Total Kharcha</div><div class="card-val" style="color: #e11d48;">Rs. ${Math.round(totalExpense).toLocaleString()}</div></div>
-              <div class="card"><div class="card-title">Net Profit (Munafa)</div><div class="card-val" style="color: #059669;">Rs. ${Math.round(netProfit).toLocaleString()}</div></div>
-              <div class="card"><div class="card-title">Profit Margin</div><div class="card-val" style="color: #1F5C4E;">${margin}%</div></div>
-            </div>
-            <h3 style="font-size: 14px; margin: 16px 0 8px;">Expense Breakdown by Category</h3>
-            <table>
-              <thead><tr><th>Category</th><th class="right">Amount (PKR)</th><th class="right">% of Total</th></tr></thead>
-              <tbody>
-                ${catBreakdown.filter(c => c.total > 0).map(c => `<tr><td>${c.name}</td><td class="right">Rs. ${Math.round(c.total).toLocaleString()}</td><td class="right">${totalExpense > 0 ? ((c.total/totalExpense)*100).toFixed(1) : 0}%</td></tr>`).join("")}
-              </tbody>
-            </table>
-            <h3 style="font-size: 14px; margin: 20px 0 8px;">Itemized Expense Records (${items.length} Transactions)</h3>
-            <table>
-              <thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="right">Amount (PKR)</th></tr></thead>
-              <tbody>
-                ${items.map(it => `<tr><td>${it.date || ""}</td><td>${it.title || ""}</td><td>${it.category || ""}</td><td class="right">Rs. ${Number(it.amount || 0).toLocaleString()}</td></tr>`).join("")}
-              </tbody>
-            </table>
-            <div class="page-break"></div>
-            <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px;">
-              <h2 style="margin:0; font-size: 18px;">Personal Khata Ledger & Advance Payment Summary</h2>
-              <div style="font-size: 13px; color: #475569; margin-top: 4px;">Registered Customer Credit & Advance Balances</div>
-            </div>
-            <div class="grid-3">
-              <div class="card"><div class="card-title">Total Baqaya (Owed)</div><div class="card-val" style="color: #d97706;">Rs. ${Math.round(totalReceivable).toLocaleString()}</div></div>
-              <div class="card"><div class="card-title">Total Advance Received</div><div class="card-val" style="color: #059669;">+Rs. ${Math.round(totalAdvance).toLocaleString()}</div></div>
-              <div class="card"><div class="card-title">Net Ledger Balance</div><div class="card-val" style="color: #1F5C4E;">Rs. ${Math.round(netLedger).toLocaleString()}</div></div>
-            </div>
-            <table>
-              <thead><tr><th>Customer Name</th><th>Phone</th><th>Status</th><th class="right">Balance (PKR)</th></tr></thead>
-              <tbody>
-                ${customers.map(c => {
-                  const b = Number(c.balance || 0);
-                  return `<tr><td>${c.name || ""}</td><td>${c.phone || "—"}</td><td>${b > 0 ? "Baqaya (Owes)" : b < 0 ? "Advance Received" : "Cleared"}</td><td class="right">${b < 0 ? "+Rs. " + Math.abs(b).toLocaleString() : "Rs. " + b.toLocaleString()}</td></tr>`;
-                }).join("")}
-              </tbody>
-            </table>
-          </body>
-        </html>
-      `);
-      frameDoc.close();
-      iframe.contentWindow.focus();
-      setTimeout(() => {
-        try { iframe.contentWindow.print(); } catch (_) { window.print(); }
-        setTimeout(() => { try { document.body.removeChild(iframe); } catch (_) {} }, 4000);
-      }, 300);
-      return;
-    } catch (e) {
-      console.warn("Iframe print error:", e);
       window.print();
+    } catch (e) {
+      console.warn("window.print failed:", e);
     }
   };
 
@@ -2835,39 +2756,47 @@ function MonthlyStatementModal({
               type="button"
               disabled={downloading}
               onClick={handleDownloadPdf}
-              className="flex-1 py-2.5 px-4 min-h-[44px] rounded-xl bg-[#1F5C4E] text-white hover:bg-[#1F5C4E]/90 font-bold text-xs active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              className="flex-1 py-2.5 px-4 min-h-[44px] rounded-xl bg-[#1F5C4E] text-white hover:bg-[#1F5C4E]/90 font-bold text-xs active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
             >
-              <span>{downloading ? "Generating..." : "Download PDF Statement"}</span>
+              <span>{downloading ? "Preparing PDF..." : "Download PDF Statement"}</span>
             </button>
 
             <button
               type="button"
               onClick={handlePrint}
-              className="py-2.5 px-4 min-h-[44px] rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 text-xs font-bold active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
+              className="py-2.5 px-4 min-h-[44px] rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 text-xs font-bold active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-sm"
             >
-              <span>Print</span>
+              <span>Print / Save PDF</span>
             </button>
           </div>
 
-          {/* Statement Ready Banner with Direct User Link & WhatsApp Button */}
+          {/* Statement Ready Banner with Direct User Link, Open Viewer & WhatsApp Button */}
           {statementReady && (
             <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col gap-2 animate-fade-in no-print">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-emerald-400">Statement Ready!</span>
                 <span className="text-[10px] text-slate-400 truncate max-w-[200px]">{statementReady.fileName}</span>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href={statementReady.pdfDataUri || statementReady.blobUrl}
+                  download={statementReady.fileName}
+                  className="flex-1 min-w-[120px] py-2.5 px-3 min-h-[40px] rounded-lg bg-[#1F5C4E] text-white text-center text-xs font-bold hover:bg-[#1F5C4E]/90 transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <span>Download File</span>
+                </a>
                 <a
                   href={statementReady.blobUrl}
-                  download={statementReady.fileName}
-                  className="flex-1 py-2.5 px-3 min-h-[40px] rounded-lg bg-[#1F5C4E] text-white text-center text-xs font-bold hover:bg-[#1F5C4E]/90 transition-all flex items-center justify-center gap-1.5"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-2.5 px-3 min-h-[40px] rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition-all flex items-center justify-center gap-1.5 shadow-sm"
                 >
-                  <span>Save PDF File</span>
+                  <span>Open Viewer</span>
                 </a>
                 <button
                   type="button"
                   onClick={shareToWhatsApp}
-                  className="py-2.5 px-3 min-h-[40px] rounded-lg bg-[#25D366] text-white text-xs font-bold hover:bg-[#25D366]/90 transition-all flex items-center justify-center gap-1.5"
+                  className="py-2.5 px-3 min-h-[40px] rounded-lg bg-[#25D366] text-white text-xs font-bold hover:bg-[#25D366]/90 transition-all flex items-center justify-center gap-1.5 shadow-sm"
                 >
                   <span>WhatsApp</span>
                 </button>
@@ -3071,6 +3000,472 @@ function MonthlyStatementModal({
             Close Statement
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Dedicated Inventory Management Tab Content View
+// ---------------------------------------------------------------------------
+function InventoryTabContent({
+  shop,
+  shopId,
+  isDemo,
+  inventory = [],
+  setDemoInventory,
+  T,
+  t,
+  isInventoryEnabled = true,
+}) {
+  const [filter, setFilter] = useState("all");
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [name, setName] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [threshold, setThreshold] = useState("5");
+  const [unit, setUnit] = useState("pcs");
+  const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const lowStockCount = inventory.filter(
+    (it) => Number(it.quantity) <= Number(it.threshold)
+  ).length;
+  const posCount = inventory.filter((it) => it.source === "pos").length;
+  const manualCount = inventory.filter((it) => it.source !== "pos").length;
+
+  const filteredItems = inventory.filter((it) => {
+    const matchesSearch =
+      !search.trim() ||
+      it.name?.toLowerCase().includes(search.trim().toLowerCase()) ||
+      it.barcode?.toLowerCase().includes(search.trim().toLowerCase());
+    if (!matchesSearch) return false;
+    if (filter === "low") {
+      return Number(it.quantity) <= Number(it.threshold);
+    }
+    if (filter === "pos") {
+      return it.source === "pos";
+    }
+    if (filter === "manual") {
+      return it.source !== "pos";
+    }
+    return true;
+  });
+
+  const handleAddProduct = async (e) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      alert("Please enter product name");
+      return;
+    }
+    const parsedQty = Math.max(0, parseInt(quantity, 10) || 0);
+    const parsedThresh = Math.max(0, parseInt(threshold, 10) || 0);
+
+    setSaving(true);
+    try {
+      if (isDemo) {
+        const newItem = {
+          id: "inv_" + Date.now(),
+          name: name.trim(),
+          quantity: parsedQty,
+          threshold: parsedThresh,
+          unit: unit.trim() || "pcs",
+          source: "manual",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        setDemoInventory((prev) => [newItem, ...prev]);
+      } else {
+        const sid = shopId || localStorage.getItem("active_shop_id");
+        if (!sid) throw new Error("Shop session not found. Please log in again.");
+        await addDoc(collection(db, "shops", sid, "inventory"), {
+          name: name.trim(),
+          quantity: parsedQty,
+          threshold: parsedThresh,
+          unit: unit.trim() || "pcs",
+          source: "manual",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      }
+      setName("");
+      setQuantity("");
+      setThreshold("5");
+      setUnit("pcs");
+      setShowAddForm(false);
+    } catch (err) {
+      alert("Failed to save product: " + (err.message || err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateStock = async (item, delta) => {
+    const newQty = Math.max(0, Number(item.quantity || 0) + delta);
+    if (isDemo) {
+      setDemoInventory((prev) =>
+        prev.map((it) => (it.id === item.id ? { ...it, quantity: newQty } : it))
+      );
+    } else {
+      const sid = shopId || localStorage.getItem("active_shop_id");
+      try {
+        await updateDoc(doc(db, "shops", sid, "inventory", item.id), {
+          quantity: newQty,
+          updated_at: new Date().toISOString(),
+        });
+      } catch (err) {
+        alert("Failed to update stock: " + (err.message || err));
+      }
+    }
+  };
+
+  const deleteItem = async (item) => {
+    if (!window.confirm(`Are you sure you want to delete '${item.name}'?`)) return;
+    if (isDemo) {
+      setDemoInventory((prev) => prev.filter((it) => it.id !== item.id));
+    } else {
+      const sid = shopId || localStorage.getItem("active_shop_id");
+      try {
+        await deleteDoc(doc(db, "shops", sid, "inventory", item.id));
+      } catch (err) {
+        alert("Failed to delete product: " + (err.message || err));
+      }
+    }
+  };
+
+  if (!isInventoryEnabled) {
+    return (
+      <div className="rounded-xl bg-slate-card border border-slate-border p-6 text-center animate-fade-in">
+        <div className="text-4xl mb-3">📦</div>
+        <h3 className="text-base font-bold text-slate-100 m-0">Inventory Feature Disabled</h3>
+        <p className="text-xs text-slate-400 mt-2 max-w-xs mx-auto">
+          Inventory Tracking and Low-Stock Alerts are currently not enabled for your store. Please contact your administrator to activate this feature.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 pb-4 animate-fade-in">
+      {/* Header & KPI Summary */}
+      <div className="rounded-xl bg-slate-card border border-slate-border p-4">
+        <div className="flex justify-between items-center mb-3">
+          <div>
+            <h3 className="text-base font-bold text-slate-100 m-0 flex items-center gap-2">
+              <span>Inventory Management</span>
+              {lowStockCount > 0 && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-warm/15 text-amber-warm border border-amber-warm/30">
+                  {lowStockCount} Low Stock
+                </span>
+              )}
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {shop ? shop.shop_name : "Al-Madina Store"} • {inventory.length} Total Items
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="px-3.5 py-2 rounded-xl bg-[#1F5C4E] text-white font-bold text-xs hover:bg-[#1F5C4E]/90 active:scale-95 transition-all flex items-center gap-1 shadow-sm"
+          >
+            <span>{showAddForm ? "Cancel" : "+ Add Item"}</span>
+          </button>
+        </div>
+
+        {/* 3 KPI Summary Cards */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-slate-800/50 p-2.5 rounded-xl border border-slate-700/60 text-center">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+              Total Stock
+            </span>
+            <div className="text-lg font-black text-slate-100 mt-0.5">
+              {inventory.length}
+            </div>
+          </div>
+          <div className={`p-2.5 rounded-xl border text-center ${lowStockCount > 0 ? "bg-amber-warm/15 border-amber-warm/40" : "bg-slate-800/50 border-slate-700/60"}`}>
+            <span className={`text-[10px] font-bold uppercase tracking-wide block ${lowStockCount > 0 ? "text-amber-warm" : "text-slate-400"}`}>
+              Low Stock
+            </span>
+            <div className={`text-lg font-black mt-0.5 ${lowStockCount > 0 ? "text-amber-warm" : "text-slate-100"}`}>
+              {lowStockCount}
+            </div>
+          </div>
+          <div className="bg-slate-800/50 p-2.5 rounded-xl border border-slate-700/60 text-center">
+            <span className="text-[10px] font-bold text-sky-400 uppercase tracking-wide block">
+              POS Synced
+            </span>
+            <div className="text-lg font-black text-sky-400 mt-0.5">
+              {posCount}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Search & Filter Bar */}
+      <div className="rounded-xl bg-slate-card border border-slate-border p-3 space-y-2.5">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search products by name or barcode..."
+          className="w-full px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-100 text-xs placeholder-slate-500 focus:outline-none focus:border-[#1F5C4E]"
+        />
+
+        {/* Filter Pills */}
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
+          <button
+            type="button"
+            onClick={() => setFilter("all")}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+              filter === "all"
+                ? "bg-[#1F5C4E] text-white"
+                : "bg-slate-800 text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            All ({inventory.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("low")}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              filter === "low"
+                ? "bg-amber-warm text-slate-950 font-black"
+                : "bg-slate-800 text-slate-400 hover:text-amber-warm"
+            }`}
+          >
+            <span>Low Stock</span>
+            {lowStockCount > 0 && (
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filter === "low" ? "bg-black/20" : "bg-amber-warm/20 text-amber-warm"}`}>
+                {lowStockCount}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("pos")}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              filter === "pos"
+                ? "bg-sky-500 text-white"
+                : "bg-slate-800 text-slate-400 hover:text-sky-400"
+            }`}
+          >
+            <span>POS Sync</span>
+            {posCount > 0 && (
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filter === "pos" ? "bg-white/20" : "bg-sky-500/20 text-sky-400"}`}>
+                {posCount}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("manual")}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              filter === "manual"
+                ? "bg-slate-600 text-white"
+                : "bg-slate-800 text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <span>Manual</span>
+            {manualCount > 0 && (
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filter === "manual" ? "bg-white/20" : "bg-slate-700 text-slate-300"}`}>
+                {manualCount}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Add Product Form */}
+      {showAddForm && (
+        <form onSubmit={handleAddProduct} className="p-4 bg-slate-card rounded-xl border border-slate-border animate-fade-in shadow-md">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-3 m-0">
+            Add New Inventory Product
+          </h4>
+          <div className="grid grid-cols-1 gap-2.5">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                Product / Item Name *
+              </label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Sugar 50kg, Cooking Oil 5L, Dal Chana..."
+                className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-xs focus:outline-none focus:border-[#1F5C4E]"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                  Current Stock
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  required
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  placeholder="0"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-xs focus:outline-none focus:border-[#1F5C4E]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                  Min Alert (Threshold)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  required
+                  value={threshold}
+                  onChange={(e) => setThreshold(e.target.value)}
+                  placeholder="5"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-xs focus:outline-none focus:border-[#1F5C4E]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                  Unit
+                </label>
+                <select
+                  value={unit}
+                  onChange={(e) => setUnit(e.target.value)}
+                  className="w-full px-2 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 text-xs focus:outline-none focus:border-[#1F5C4E]"
+                >
+                  <option value="pcs">pcs</option>
+                  <option value="kg">kg</option>
+                  <option value="liters">liters</option>
+                  <option value="packs">packs</option>
+                  <option value="bags">bags</option>
+                  <option value="sacks">sacks</option>
+                  <option value="tins">tins</option>
+                  <option value="cartons">cartons</option>
+                  <option value="boxes">boxes</option>
+                </select>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="w-full mt-1 py-2.5 rounded-xl bg-[#1F5C4E] text-white font-bold text-xs hover:bg-[#1F5C4E]/90 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+            >
+              <span>{saving ? "Saving..." : "Save Product"}</span>
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Product List */}
+      <div className="space-y-2">
+        {filteredItems.length === 0 ? (
+          <div className="rounded-xl bg-slate-card border border-slate-border text-center py-12 px-4 text-slate-400">
+            <div className="text-3xl mb-2">📦</div>
+            <p className="text-xs font-semibold m-0">
+              {filter === "low"
+                ? "Great! No low-stock products right now."
+                : "No inventory products found."}
+            </p>
+            <p className="text-[11px] text-slate-500 mt-1">
+              {search.trim()
+                ? "Try searching with a different keyword."
+                : "Tap '+ Add Item' above to track your first product, or connect local POS."}
+            </p>
+          </div>
+        ) : (
+          filteredItems.map((item) => {
+            const qty = Number(item.quantity || 0);
+            const thresh = Number(item.threshold || 0);
+            const isOutOfStock = qty <= 0;
+            const isLow = !isOutOfStock && qty <= thresh;
+
+            return (
+              <div
+                key={item.id}
+                className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 transition-all ${
+                  isOutOfStock
+                    ? "bg-rose-crimson/10 border-rose-crimson/40"
+                    : isLow
+                    ? "bg-amber-warm/10 border-amber-warm/40"
+                    : "bg-slate-card border-slate-border"
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-bold text-xs text-slate-100 truncate">
+                      {item.name}
+                    </span>
+                    {item.source === "pos" ? (
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                        POS Sync
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-700/50 text-slate-400 border border-slate-600/40">
+                        Manual
+                      </span>
+                    )}
+                    {isOutOfStock ? (
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-rose-crimson/20 text-rose-crimson border border-rose-crimson/40">
+                        Out of Stock
+                      </span>
+                    ) : isLow ? (
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-warm/20 text-amber-warm border border-amber-warm/40">
+                        Low Stock
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-mint/15 text-emerald-mint border border-emerald-mint/30">
+                        In Stock
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+                    <span>Min Alert: &le; {thresh} {item.unit || "pcs"}</span>
+                    {item.barcode && <span className="text-slate-500">• Barcode: {item.barcode}</span>}
+                    {item.source === "pos" && item.last_synced_at && (
+                      <span className="text-sky-400/80">• Synced {item.last_synced_at.slice(11, 16)}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Quick Stepper & Delete */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center bg-slate-900 border border-slate-700 rounded-lg overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => updateStock(item, -1)}
+                      disabled={qty <= 0}
+                      className="w-7 h-7 flex items-center justify-center font-black text-slate-300 hover:bg-slate-800 active:scale-95 disabled:opacity-30"
+                    >
+                      -
+                    </button>
+                    <span className="px-2 text-xs font-black text-slate-100 min-w-[32px] text-center">
+                      {qty}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => updateStock(item, 1)}
+                      className="w-7 h-7 flex items-center justify-center font-black text-slate-300 hover:bg-slate-800 active:scale-95"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => deleteItem(item)}
+                    title="Delete product"
+                    className="w-7 h-7 rounded-lg bg-slate-800/80 border border-slate-700 text-slate-400 hover:text-rose-crimson hover:border-rose-crimson/40 flex items-center justify-center text-xs active:scale-95 transition-all"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );
