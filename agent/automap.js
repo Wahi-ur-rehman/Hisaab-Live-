@@ -199,4 +199,61 @@ function rowToBill(row, m) {
   };
 }
 
-module.exports = { autoMap, describe, rowToBill, parseDate, parseMoney, detectDayFirst, isVoidValue, tokens };
+function scoreItemName(name) {
+  const f = flat(name);
+  if (/(itemname|productname|itemdesc|description|pname|itemtitle|producttitle)/.test(f)) return 10;
+  if (/^(item|product|name|desc|title)$/.test(f)) return 8;
+  if (/(item|product|desc)/.test(f)) return 5;
+  return 0;
+}
+
+function scoreStockQty(name) {
+  const f = flat(name);
+  if (/(currentstock|stockqty|qtyonhand|qoh|balanceqty|quantity|unitsinstock|currentqty|availableqty)/.test(f)) return 10;
+  if (/^(stock|qty|quantity|balance)$/.test(f)) return 8;
+  if (/(stock|qty)/.test(f)) return 6;
+  return 0;
+}
+
+function scoreBarcode(name) {
+  const f = flat(name);
+  if (/(barcode|itemcode|productcode|upc|ean|sku|itemid|productid)/.test(f)) return 10;
+  if (/^(code|sku|barcode)$/.test(f)) return 8;
+  return 0;
+}
+
+function autoMapInventory(tables) {
+  for (const t of tables) {
+    const fName = flat(t.name);
+    if (!/(item|product|stock|inventory|itemmaster|productmaster|article)/.test(fName)) continue;
+    const nameCol = pick(t, scoreItemName);
+    const qtyCol = pick(t, scoreStockQty, (vals) => share(vals, (v) => Number.isFinite(parseMoney(v))) >= 0.5);
+    if (!nameCol || !qtyCol) continue;
+    const barcodeCol = pick(t, scoreBarcode);
+    return {
+      ok: true,
+      table: t.name,
+      cols: {
+        name: nameCol.name,
+        quantity: qtyCol.name,
+        barcode: barcodeCol ? barcodeCol.name : null,
+      }
+    };
+  }
+  return { ok: false };
+}
+
+function rowToInventory(row, map) {
+  const c = map.cols;
+  const name = String(row[c.name] || "").trim();
+  const qty = parseMoney(row[c.quantity]);
+  if (!name || !Number.isFinite(qty)) return null;
+  return {
+    name,
+    quantity: Math.max(0, Math.floor(qty)),
+    barcode: c.barcode && row[c.barcode] ? String(row[c.barcode]).trim() : "",
+    id: c.barcode && row[c.barcode] ? String(row[c.barcode]).trim() : name.toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 32),
+  };
+}
+
+module.exports = { autoMap, describe, rowToBill, parseDate, parseMoney, detectDayFirst, isVoidValue, tokens, autoMapInventory, rowToInventory };

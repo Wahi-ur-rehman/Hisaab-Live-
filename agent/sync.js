@@ -2,7 +2,7 @@
 // One polling step of the agent: read the POS, turn rows into standard bills, tell the server what changed.
 // Everything it needs is passed in, so it is tested without a network or a real POS.
 const core = require("./billcore");
-const { rowToBill } = require("./automap");
+const { rowToBill, rowToInventory } = require("./automap");
 
 const MIN = 60000;
 const BEAT_MS = 5 * MIN;     // "I am alive" + re-check today and yesterday
@@ -110,12 +110,37 @@ function createSync({ connector, source, callFn, cfg, log = () => {}, now = () =
     }
   }
 
+  // Sync POS Inventory stock levels if an inventory table was mapped
+  async function tickInventory() {
+    if (!source.inventory || !source.inventory.table) return;
+    const inv = source.inventory;
+    const t = now();
+    if (t - (state.lastInvSync || 0) < FULL_MS) return;
+    try {
+      const usedCols = [inv.cols.name, inv.cols.quantity, inv.cols.barcode].filter(Boolean);
+      const rows = await connector.readRows(inv.table, usedCols, {});
+      const items = [];
+      for (const r of rows) {
+        const it = rowToInventory(r, inv);
+        if (it) items.push(it);
+        if (items.length >= 500) break;
+      }
+      if (items.length) {
+        await callFn("agentSyncInventory", { ...auth, items });
+      }
+      state.lastInvSync = t;
+    } catch (e) {
+      log("Inventory sync skipped:", e.message || e);
+    }
+  }
+
   return {
     state,
     // returns how long to wait before the next step
     async tick() {
       const t0 = Date.now();
       await (m.mode === "bills" ? tickBills() : tickTotals());
+      await tickInventory();
       return Math.max(connector.pollMs || 10000, (Date.now() - t0) * 5);
     },
   };

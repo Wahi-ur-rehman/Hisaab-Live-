@@ -406,6 +406,77 @@ exports.agentSync = functions.https.onCall(async (data) => {
   return { ok: true, need };
 });
 
+// Agent syncs inventory products discovered from POS database
+exports.agentSyncInventory = functions.https.onCall(async (data) => {
+  const shopId = await authAgent(data);
+  const items = Array.isArray(data.items) ? data.items : [];
+  if (!items.length) return { ok: true, synced: 0 };
+  if (items.length > 1000) throw new HttpsError("invalid-argument", "Maximum 1000 items per batch");
+
+  const shopRef = db.collection("shops").doc(shopId);
+  const invCol = shopRef.collection("inventory");
+
+  // Read existing items to preserve owner custom thresholds and manual attributes
+  const existingSnap = await invCol.get();
+  const existingMap = new Map();
+  existingSnap.forEach((d) => {
+    const data = d.data();
+    if (data.pos_item_id) existingMap.set(String(data.pos_item_id), { id: d.id, ...data });
+    if (data.barcode) existingMap.set(String(data.barcode), { id: d.id, ...data });
+  });
+
+  const batches = [];
+  let currentBatch = db.batch();
+  let countInBatch = 0;
+
+  for (const it of items) {
+    const posId = String(it.id || it.pos_item_id || "").trim();
+    const barcode = String(it.barcode || "").trim();
+    const name = String(it.name || "Unnamed Item").trim().slice(0, 100);
+    const qty = Math.max(0, Math.floor(Number(it.quantity || it.stock || 0)));
+    const key = posId || barcode;
+    if (!key && !name) continue;
+
+    const existing = (posId && existingMap.get(posId)) || (barcode && existingMap.get(barcode));
+    const docRef = existing ? invCol.doc(existing.id) : invCol.doc();
+
+    const payload = {
+      name: name || (existing ? existing.name : "Unnamed Item"),
+      quantity: qty,
+      source: "pos",
+      pos_item_id: posId || (existing ? existing.pos_item_id : ""),
+      barcode: barcode || (existing ? existing.barcode : ""),
+      last_synced_at: new Date().toISOString(),
+      updated_at: FieldValue.serverTimestamp(),
+    };
+
+    // If new item, set default threshold (5), otherwise preserve owner's custom threshold
+    if (!existing) {
+      payload.threshold = Math.max(1, Math.floor(Number(it.threshold) || 5));
+      payload.unit = String(it.unit || "pcs").trim();
+      payload.created_at = new Date().toISOString();
+    }
+
+    currentBatch.set(docRef, payload, { merge: true });
+    countInBatch++;
+
+    if (countInBatch >= 400) {
+      batches.push(currentBatch);
+      currentBatch = db.batch();
+      countInBatch = 0;
+    }
+  }
+
+  if (countInBatch > 0) batches.push(currentBatch);
+  for (const b of batches) await b.commit();
+
+  await shopRef.update({
+    inventory_last_synced: FieldValue.serverTimestamp(),
+  });
+
+  return { ok: true, synced: items.length };
+});
+
 // Owner marks alerts as seen (the only thing an owner can change; alerts can never be deleted).
 exports.ackAlerts = web.https.onCall(async (data, context) => {
   const shopId = ownerShopId(context);

@@ -3101,14 +3101,23 @@ function InventoryModal({
   const lowStockCount = inventory.filter(
     (it) => Number(it.quantity) <= Number(it.threshold)
   ).length;
+  const posCount = inventory.filter((it) => it.source === "pos").length;
+  const manualCount = inventory.filter((it) => it.source !== "pos").length;
 
   const filteredItems = inventory.filter((it) => {
     const matchesSearch =
       !search.trim() ||
-      it.name?.toLowerCase().includes(search.trim().toLowerCase());
+      it.name?.toLowerCase().includes(search.trim().toLowerCase()) ||
+      it.barcode?.toLowerCase().includes(search.trim().toLowerCase());
     if (!matchesSearch) return false;
     if (filter === "low") {
       return Number(it.quantity) <= Number(it.threshold);
+    }
+    if (filter === "pos") {
+      return it.source === "pos";
+    }
+    if (filter === "manual") {
+      return it.source !== "pos";
     }
     return true;
   });
@@ -3131,6 +3140,7 @@ function InventoryModal({
           quantity: parsedQty,
           threshold: parsedThresh,
           unit: unit.trim() || "pcs",
+          source: "manual",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
@@ -3143,6 +3153,7 @@ function InventoryModal({
           quantity: parsedQty,
           threshold: parsedThresh,
           unit: unit.trim() || "pcs",
+          source: "manual",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         });
@@ -3241,22 +3252,22 @@ function InventoryModal({
         </div>
 
         {/* Filter Pills */}
-        <div className="px-4 py-2 bg-slate-850 border-b border-slate-border flex gap-2">
+        <div className="px-4 py-2 bg-slate-850 border-b border-slate-border flex gap-2 overflow-x-auto">
           <button
             type="button"
             onClick={() => setFilter("all")}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
               filter === "all"
                 ? "bg-[#1F5C4E] text-white"
                 : "bg-slate-800 text-slate-400 hover:text-slate-200"
             }`}
           >
-            All Products ({inventory.length})
+            All ({inventory.length})
           </button>
           <button
             type="button"
             onClick={() => setFilter("low")}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
               filter === "low"
                 ? "bg-amber-warm text-slate-950"
                 : "bg-slate-800 text-slate-400 hover:text-amber-warm"
@@ -3266,6 +3277,38 @@ function InventoryModal({
             {lowStockCount > 0 && (
               <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filter === "low" ? "bg-black/20" : "bg-amber-warm/20 text-amber-warm"}`}>
                 {lowStockCount}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("pos")}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              filter === "pos"
+                ? "bg-sky-500 text-white"
+                : "bg-slate-800 text-slate-400 hover:text-sky-400"
+            }`}
+          >
+            <span>POS Auto-Sync</span>
+            {posCount > 0 && (
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filter === "pos" ? "bg-white/20" : "bg-sky-500/20 text-sky-400"}`}>
+                {posCount}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("manual")}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              filter === "manual"
+                ? "bg-slate-600 text-white"
+                : "bg-slate-800 text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <span>Manual</span>
+            {manualCount > 0 && (
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filter === "manual" ? "bg-white/20" : "bg-slate-700 text-slate-300"}`}>
+                {manualCount}
               </span>
             )}
           </button>
@@ -3390,10 +3433,19 @@ function InventoryModal({
                     }`}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-bold text-xs text-slate-100 truncate">
                           {item.name}
                         </span>
+                        {item.source === "pos" ? (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                            POS Sync
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-700/50 text-slate-400 border border-slate-600/40">
+                            Manual
+                          </span>
+                        )}
                         {isOutOfStock ? (
                           <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-rose-crimson/20 text-rose-crimson border border-rose-crimson/40">
                             Out of Stock
@@ -3408,8 +3460,12 @@ function InventoryModal({
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">
-                        Min Alert: &le; {thresh} {item.unit || "pcs"}
+                      <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
+                        <span>Min Alert: &le; {thresh} {item.unit || "pcs"}</span>
+                        {item.barcode && <span className="text-slate-500">• {item.barcode}</span>}
+                        {item.source === "pos" && item.last_synced_at && (
+                          <span className="text-sky-400/80">• Synced {item.last_synced_at.slice(11, 16)}</span>
+                        )}
                       </div>
                     </div>
 
