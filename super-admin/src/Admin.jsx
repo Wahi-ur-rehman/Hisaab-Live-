@@ -685,9 +685,39 @@ function Dashboard({ S, themeMode, onToggleTheme }) {
                       onMouseLeave={(e) => { e.currentTarget.style.background = rowBg; }}>
 
                       {/* Shop & Owner */}
-                      <td style={{ padding: "12px 16px", maxWidth: 240 }}>
+                      <td style={{ padding: "12px 16px", maxWidth: 260 }}>
                         <div style={{ fontWeight: 700, fontSize: 14, color: S.text }}>{s.shop_name}</div>
                         <div style={{ fontSize: 12, color: S.textSec, marginTop: 2 }}>{s.owner_phone || "—"}</div>
+                        <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => toggleInventory(s)}
+                            title={s.inventory_enabled ? "Click to disable inventory feature" : "Click to enable inventory feature"}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                              padding: "4px 8px",
+                              borderRadius: 8,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: busy ? "not-allowed" : "pointer",
+                              background: s.inventory_enabled ? S.accentLight : S.cardSecondary,
+                              color: s.inventory_enabled ? S.accent : S.textMuted,
+                              border: `1px solid ${s.inventory_enabled ? S.accent : S.border}`,
+                              transition: "all 0.15s",
+                            }}
+                          >
+                            <span style={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: "50%",
+                              background: s.inventory_enabled ? S.accent : S.textMuted,
+                            }} />
+                            <span>Inventory: <b>{s.inventory_enabled ? "Enabled" : "Disabled"}</b></span>
+                          </button>
+                        </div>
                         {codes[s.id] && (
                           <div style={{ marginTop: 6, padding: "4px 8px", background: S.accentLight, border: `1px solid ${S.accent}`, borderRadius: 6, display: "inline-block" }}>
                             <span style={{ fontSize: 12, color: S.accent, fontWeight: 600 }}>Setup Code: </span>
@@ -780,6 +810,7 @@ function Dashboard({ S, themeMode, onToggleTheme }) {
                       <td style={{ padding: "12px 16px", textAlign: "right" }}>
                         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
                           <ActionBtn label="+1 Month" primary={true} S={S} busy={busy} onClick={() => markPaid(s)} />
+                          <ActionBtn label={s.inventory_enabled ? "Disable Inv" : "Enable Inv"} S={S} busy={busy} onClick={() => toggleInventory(s)} />
                           <ActionBtn label="Setup Code" S={S} busy={busy} onClick={() => generateSetupCode(s)} />
                           <ActionBtn label="Notify" S={S} busy={busy} onClick={() => openNotifyModal(s)} />
                           <ActionBtn label="Reset PIN" S={S} busy={busy} onClick={() => openResetPin(s)} />

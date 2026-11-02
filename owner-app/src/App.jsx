@@ -2516,12 +2516,39 @@ async function generateMonthlyPdf({
   const safeCode = (shopCode || "G10").toUpperCase().replace(/[^A-Z0-9]/g, "");
   const fileName = `HisaabLive-Statement-${safeCode}-${month}.pdf`;
   const pdfBlob = doc.output("blob");
+  const blobUrl = URL.createObjectURL(pdfBlob);
 
-  // 1. Mobile Web Share API: If supported, opens native Android/iOS share sheet (Save to Files/Drive/WhatsApp)
-  if (typeof navigator !== "undefined" && navigator.canShare && typeof File !== "undefined") {
+  // 1. Direct Anchor tag download (Universal browser support)
+  let downloadTriggered = false;
+  try {
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = fileName;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    downloadTriggered = true;
+    setTimeout(() => {
+      try { document.body.removeChild(link); } catch (_) {}
+    }, 4000);
+  } catch (err) {
+    console.warn("Direct anchor download error:", err);
+  }
+
+  // 2. jsPDF native save() method
+  try {
+    doc.save(fileName);
+    downloadTriggered = true;
+  } catch (err) {
+    console.warn("jsPDF save error:", err);
+  }
+
+  // 3. Mobile Web Share API: For mobile devices where blob downloads are suppressed
+  const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+  if (isMobile && typeof navigator !== "undefined" && typeof navigator.share === "function" && typeof File !== "undefined") {
     try {
       const file = new File([pdfBlob], fileName, { type: "application/pdf" });
-      if (navigator.canShare({ files: [file] })) {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           title: fileName,
           text: `HisaabLive Monthly Statement - ${month}`,
@@ -2530,44 +2557,16 @@ async function generateMonthlyPdf({
         return;
       }
     } catch (shareErr) {
-      if (shareErr.name === "AbortError") {
-        return;
+      if (shareErr.name !== "AbortError") {
+        console.warn("navigator.share fallback failed:", shareErr);
       }
-      console.warn("navigator.share failed, trying direct download:", shareErr);
     }
   }
 
-  // 2. Official jsPDF save for standard desktop & mobile browsers
-  try {
-    doc.save(fileName);
-    return;
-  } catch (saveErr) {
-    console.warn("doc.save failed, trying blob anchor fallback:", saveErr);
-  }
-
-  // 3. Direct Anchor Download with ObjectURL (without target="_blank" so popup blocker doesn't intercept)
-  try {
-    const blobUrl = URL.createObjectURL(pdfBlob);
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.download = fileName;
-    link.style.display = "none";
-    document.body.appendChild(link);
-    link.click();
-    setTimeout(() => {
-      try {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(blobUrl);
-      } catch (_) {}
-    }, 2000);
-  } catch (linkErr) {
-    console.warn("Anchor download failed:", linkErr);
+  // 4. Fail-safe preview: If download couldn't trigger or on mobile WebView, open PDF window/viewer
+  if (isMobile) {
     try {
-      const dataUri = doc.output("datauristring");
-      const win = window.open();
-      if (win) {
-        win.document.write(`<iframe src="${dataUri}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
-      }
+      window.open(blobUrl, "_blank");
     } catch (_) {}
   }
 }
@@ -2824,6 +2823,71 @@ function MonthlyStatementModal({
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Dedicated Section: Personal Khata Credit Ledger (Page 2 for Print) */}
+          <div className="mt-6 pt-4 border-t border-slate-700/60 print:mt-8 print:border-t-2 print:border-slate-300" style={{ pageBreakBefore: "always", breakBefore: "page" }}>
+            <div className="flex justify-between items-center mb-2">
+              <div>
+                <h4 className="m-0 text-sm font-bold text-slate-100 uppercase tracking-wide">
+                  Personal Khata Credit Ledger
+                </h4>
+                <p className="m-0 text-xs text-slate-400 mt-0.5">
+                  Full Customer Balance, Baqaya Debt & Advance Credit Summary
+                </p>
+              </div>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                {customers.length} Accounts
+              </span>
+            </div>
+
+            {/* 3 Ledger KPI Cards */}
+            <div className="grid grid-cols-3 gap-2 mb-3 mt-3">
+              <div className="bg-slate-800/50 p-2.5 rounded-xl border border-slate-700/60">
+                <div className="text-[10px] font-bold text-amber-500 uppercase">Total Baqaya</div>
+                <div className="text-sm font-black text-amber-500 mt-0.5">
+                  Rs. {Math.round(customers.reduce((s, c) => s + (Number(c.balance) > 0 ? Number(c.balance) : 0), 0)).toLocaleString()}
+                </div>
+              </div>
+              <div className="bg-slate-800/50 p-2.5 rounded-xl border border-slate-700/60">
+                <div className="text-[10px] font-bold text-emerald-mint uppercase">Total Advance</div>
+                <div className="text-sm font-black text-emerald-mint mt-0.5">
+                  +Rs. {Math.round(customers.reduce((s, c) => s + (Number(c.balance) < 0 ? Math.abs(Number(c.balance)) : 0), 0)).toLocaleString()}
+                </div>
+              </div>
+              <div className="bg-slate-800/50 p-2.5 rounded-xl border border-slate-700/60">
+                <div className="text-[10px] font-bold text-[#1F5C4E] uppercase">Net Ledger</div>
+                <div className="text-sm font-black text-[#1F5C4E] mt-0.5">
+                  Rs. {Math.round(customers.reduce((s, c) => s + (Number(c.balance) || 0), 0)).toLocaleString()}
+                </div>
+              </div>
+            </div>
+
+            {/* Customer List */}
+            <div className="flex flex-col gap-1.5">
+              {customers.length === 0 ? (
+                <div className="text-xs text-slate-400 py-2 italic">No Khata customer accounts registered yet.</div>
+              ) : (
+                [...customers].sort((a, b) => (Number(b.balance) || 0) - (Number(a.balance) || 0)).map((cust) => {
+                  const bal = Number(cust.balance || 0);
+                  const isOwed = bal > 0;
+                  const isAdv = bal < 0;
+                  return (
+                    <div key={cust.id || cust.name} className="p-2.5 min-h-[40px] rounded-xl bg-slate-800/40 border border-slate-700/50 flex justify-between items-center">
+                      <div className="min-w-0 flex-1 mr-2">
+                        <div className="font-bold text-xs text-slate-100 truncate">{cust.name}</div>
+                        <div className="text-[11px] text-slate-400">
+                          {cust.phone || "—"} • {isOwed ? "Baqaya (Owes)" : isAdv ? "Advance Received" : "Cleared / Nil"}
+                        </div>
+                      </div>
+                      <div className={`text-xs font-black ${isOwed ? "text-amber-500" : isAdv ? "text-emerald-mint" : "text-slate-400"}`}>
+                        {isAdv ? `+Rs. ${Math.round(Math.abs(bal)).toLocaleString()}` : `Rs. ${Math.round(bal).toLocaleString()}`}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
