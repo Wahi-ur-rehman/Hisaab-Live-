@@ -1530,8 +1530,26 @@ function ReportsTabContent({
         items,
         customers,
       });
-      if (res && (res.pdfDataUri || res.blobUrl)) {
+      if (res) {
         setStatementReady(res);
+      }
+
+      // If mobile browser supports Web Share with files, open native share sheet immediately
+      if (typeof navigator !== "undefined" && navigator.share && typeof File !== "undefined") {
+        try {
+          const file = new File([res.pdfBlob], res.fileName, { type: "application/pdf" });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: res.fileName,
+              text: `HisaabLive Monthly Statement - ${ym}`,
+              files: [file],
+            });
+          }
+        } catch (shareErr) {
+          if (shareErr.name !== "AbortError") {
+            console.warn("Share sheet trigger:", shareErr);
+          }
+        }
       }
     } catch (e) {
       console.error("PDF generation failed:", e);
@@ -1586,20 +1604,39 @@ function ReportsTabContent({
               <span className="text-[10px] text-slate-400 truncate max-w-[180px]">{statementReady.fileName}</span>
             </div>
             <div className="flex flex-wrap gap-2">
-              <a
-                href={statementReady.pdfDataUri || statementReady.blobUrl}
-                download={statementReady.fileName}
-                className="flex-1 min-w-[110px] py-2 px-3 rounded-lg bg-[#1F5C4E] text-white text-center text-xs font-bold hover:bg-[#1F5C4E]/90 transition-all flex items-center justify-center gap-1.5 shadow-sm"
+              <button
+                type="button"
+                onClick={async () => {
+                  if (typeof window !== "undefined" && window.AndroidNative?.savePdf) {
+                    window.AndroidNative.savePdf(statementReady.base64Data, statementReady.fileName);
+                    return;
+                  }
+                  if (typeof navigator !== "undefined" && navigator.share && typeof File !== "undefined") {
+                    try {
+                      const file = new File([statementReady.pdfBlob], statementReady.fileName, { type: "application/pdf" });
+                      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        await navigator.share({ title: statementReady.fileName, files: [file] });
+                        return;
+                      }
+                    } catch (_) {}
+                  }
+                  const a = document.createElement("a");
+                  a.href = statementReady.blobUrl;
+                  a.download = statementReady.fileName;
+                  document.body.appendChild(a);
+                  a.click();
+                  setTimeout(() => { try { document.body.removeChild(a); } catch(_) {} }, 1000);
+                }}
+                className="flex-1 min-w-[120px] py-2 px-3 rounded-lg bg-[#1F5C4E] text-white text-center text-xs font-bold hover:bg-[#1F5C4E]/90 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
               >
-                <span>Download File</span>
-              </a>
+                <span>Save / Share PDF</span>
+              </button>
               <a
                 href={statementReady.blobUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+                download={statementReady.fileName}
                 className="py-2 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition-all flex items-center justify-center gap-1.5 shadow-sm"
               >
-                <span>Open Viewer</span>
+                <span>Download</span>
               </a>
               <button
                 type="button"
@@ -2591,14 +2628,23 @@ async function generateMonthlyPdf({
   const fileName = `HisaabLive-Statement-${safeCode}-${month}.pdf`;
   const pdfBlob = doc.output("blob");
   const blobUrl = URL.createObjectURL(pdfBlob);
-  const pdfDataUri = doc.output("datauristring");
+  const dataUri = doc.output("datauristring");
+  const base64Data = (dataUri && dataUri.includes(",")) ? dataUri.split(",")[1] : "";
 
-  // Universal download trigger: Data URI + Blob Anchor
+  // 1. Android Native Bridge (saves directly to Downloads and opens)
+  if (typeof window !== "undefined" && window.AndroidNative && typeof window.AndroidNative.savePdf === "function") {
+    try {
+      window.AndroidNative.savePdf(base64Data, fileName);
+    } catch (e) {
+      console.warn("AndroidNative.savePdf error:", e);
+    }
+  }
+
+  // 2. Standard Blob Anchor download (universal desktop and mobile browsers)
   try {
     const link = document.createElement("a");
-    link.href = pdfDataUri;
+    link.href = blobUrl;
     link.download = fileName;
-    link.target = "_blank";
     link.rel = "noopener";
     document.body.appendChild(link);
     link.click();
@@ -2606,17 +2652,17 @@ async function generateMonthlyPdf({
       try { document.body.removeChild(link); } catch (_) {}
     }, 2000);
   } catch (err) {
-    console.warn("Direct Data URI download error:", err);
+    console.warn("Direct blob download error:", err);
   }
 
-  // jsPDF native save() method as secondary trigger
+  // 3. jsPDF native save() method
   try {
     doc.save(fileName);
   } catch (err) {
     console.warn("jsPDF save error:", err);
   }
 
-  return { blobUrl, pdfDataUri, pdfBlob, fileName, doc };
+  return { blobUrl, pdfBlob, base64Data, fileName, doc };
 }
 
 // ---------------------------------------------------------------------------
@@ -2695,8 +2741,26 @@ function MonthlyStatementModal({
         items,
         customers,
       });
-      if (res && (res.pdfDataUri || res.blobUrl)) {
+      if (res) {
         setStatementReady(res);
+      }
+
+      // If mobile browser supports Web Share with files, open native share sheet immediately
+      if (typeof navigator !== "undefined" && navigator.share && typeof File !== "undefined") {
+        try {
+          const file = new File([res.pdfBlob], res.fileName, { type: "application/pdf" });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: res.fileName,
+              text: `HisaabLive Monthly Statement - ${ym}`,
+              files: [file],
+            });
+          }
+        } catch (shareErr) {
+          if (shareErr.name !== "AbortError") {
+            console.warn("Share sheet trigger:", shareErr);
+          }
+        }
       }
     } catch (err) {
       console.error(err);
@@ -2716,9 +2780,13 @@ function MonthlyStatementModal({
 
   const handlePrint = () => {
     try {
+      if (typeof window !== "undefined" && window.AndroidNative && typeof window.AndroidNative.print === "function") {
+        window.AndroidNative.print();
+        return;
+      }
       window.print();
     } catch (e) {
-      console.warn("window.print failed:", e);
+      console.warn("Print error:", e);
     }
   };
 
@@ -2778,20 +2846,39 @@ function MonthlyStatementModal({
                 <span className="text-[10px] text-slate-400 truncate max-w-[200px]">{statementReady.fileName}</span>
               </div>
               <div className="flex flex-wrap gap-2">
-                <a
-                  href={statementReady.pdfDataUri || statementReady.blobUrl}
-                  download={statementReady.fileName}
-                  className="flex-1 min-w-[120px] py-2.5 px-3 min-h-[40px] rounded-lg bg-[#1F5C4E] text-white text-center text-xs font-bold hover:bg-[#1F5C4E]/90 transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (typeof window !== "undefined" && window.AndroidNative?.savePdf) {
+                      window.AndroidNative.savePdf(statementReady.base64Data, statementReady.fileName);
+                      return;
+                    }
+                    if (typeof navigator !== "undefined" && navigator.share && typeof File !== "undefined") {
+                      try {
+                        const file = new File([statementReady.pdfBlob], statementReady.fileName, { type: "application/pdf" });
+                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                          await navigator.share({ title: statementReady.fileName, files: [file] });
+                          return;
+                        }
+                      } catch (_) {}
+                    }
+                    const a = document.createElement("a");
+                    a.href = statementReady.blobUrl;
+                    a.download = statementReady.fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => { try { document.body.removeChild(a); } catch(_) {} }, 1000);
+                  }}
+                  className="flex-1 min-w-[120px] py-2.5 px-3 min-h-[40px] rounded-lg bg-[#1F5C4E] text-white text-center text-xs font-bold hover:bg-[#1F5C4E]/90 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
                 >
-                  <span>Download File</span>
-                </a>
+                  <span>Save / Share PDF</span>
+                </button>
                 <a
                   href={statementReady.blobUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  download={statementReady.fileName}
                   className="py-2.5 px-3 min-h-[40px] rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition-all flex items-center justify-center gap-1.5 shadow-sm"
                 >
-                  <span>Open Viewer</span>
+                  <span>Download</span>
                 </a>
                 <button
                   type="button"
