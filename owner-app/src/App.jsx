@@ -1621,6 +1621,19 @@ function ReportsTabContent({
               <button
                 type="button"
                 onClick={async () => {
+                  if (typeof Capacitor !== "undefined" && Capacitor.isNativePlatform()) {
+                    if (statementReady.uri) {
+                      try {
+                        await Share.share({
+                          title: statementReady.fileName,
+                          text: `HisaabLive Monthly Statement - ${ym}`,
+                          url: statementReady.uri,
+                          dialogTitle: "Save / Share Statement PDF",
+                        });
+                        return;
+                      } catch (_) {}
+                    }
+                  }
                   if (typeof window !== "undefined" && window.AndroidNative?.savePdf) {
                     window.AndroidNative.savePdf(statementReady.base64Data, statementReady.fileName);
                     return;
@@ -1782,6 +1795,7 @@ function Hisaab({
   const [exps, setExps] = useState([]);
   const [monthExps, setMonthExps] = useState([]);
   const [month, setMonth] = useState(null);
+  const [heroPeriod, setHeroPeriod] = useState("today");
   const ym = today.slice(0, 7);
 
   useEffect(() => {
@@ -1862,6 +1876,8 @@ function Hisaab({
   const mSale = isDemo
     ? 540000
     : ((month && Number(month.sale)) || (shop && (shop.today_sale_date === today || shop.today_sale_date?.startsWith(ym)) ? Number(shop.today_sale) : 0) || Number(shop?.today_sale || 0));
+  const mProfit = mSale - mExp;
+  const monthMargin = mSale > 0 ? (((mProfit) / mSale) * 100).toFixed(1) : "0.0";
 
   return (
     <div>
@@ -1909,41 +1925,136 @@ function Hisaab({
 
       {/* Net Profit Hero Card with prominent visual hierarchy */}
       <div
-        className={`rounded-xl p-4 mb-4 text-white relative overflow-hidden border ${
-          netProfit >= 0
+        className={`rounded-xl p-4 mb-4 relative overflow-hidden border transition-all ${
+          (heroPeriod === "today" ? netProfit >= 0 : mProfit >= 0)
             ? "bg-slate-card border-slate-border"
             : "bg-slate-card border-rose-crimson/40"
         }`}
+        style={{ background: T.card, borderColor: T.border }}
       >
-        <div className="flex justify-between items-center relative z-10">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
-            {t.profit || "Today's Net Munafa (Profit)"}
-          </span>
+        <div className="flex justify-between items-center relative z-10 mb-1">
+          <div>
+            <span
+              className="text-xs font-bold uppercase tracking-wider transition-colors"
+              style={{ color: T.textMuted }}
+            >
+              {heroPeriod === "today"
+                ? (t.profit || "Today's Net Munafa (Profit)")
+                : `Monthly Munafa (${ym})`}
+            </span>
+          </div>
+
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-white/10 text-slate-200 border border-white/15">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-mint" />
+            {/* Today vs Month Period Toggle */}
+            <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-800/10 dark:bg-white/10 border border-slate-300 dark:border-white/15">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setHeroPeriod("today"); }}
+                className={`px-2 py-0.5 text-[11px] font-bold rounded transition-all ${
+                  heroPeriod === "today"
+                    ? "bg-[#1F5C4E] text-white shadow-sm"
+                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setHeroPeriod("month"); }}
+                className={`px-2 py-0.5 text-[11px] font-bold rounded transition-all ${
+                  heroPeriod === "month"
+                    ? "bg-[#1F5C4E] text-white shadow-sm"
+                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                Month
+              </button>
+            </div>
+
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-mint/10 text-emerald-mint border border-emerald-mint/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-mint animate-pulse" />
               Live
             </span>
           </div>
         </div>
 
-        <div className="text-[32px] font-black my-2 tracking-tight text-white relative z-10 flex items-baseline gap-2.5 flex-wrap">
-          <span>Rs. {netProfit.toLocaleString()}</span>
+        {/* Hero Amount & Margin */}
+        <div className="my-2.5 relative z-10 flex items-baseline gap-2.5 flex-wrap">
+          <span
+            className={`text-[32px] font-black tracking-tight leading-none ${
+              (heroPeriod === "today" ? netProfit >= 0 : mProfit >= 0)
+                ? "text-emerald-600 dark:text-emerald-mint"
+                : "text-rose-600 dark:text-rose-crimson"
+            }`}
+          >
+            Rs. {Math.round(heroPeriod === "today" ? netProfit : mProfit).toLocaleString()}
+          </span>
+
           <span
             className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-              netProfit >= 0
+              (heroPeriod === "today" ? netProfit >= 0 : mProfit >= 0)
                 ? "bg-emerald-mint/15 text-emerald-mint border border-emerald-mint/30"
                 : "bg-rose-crimson/15 text-rose-crimson border border-rose-crimson/30"
             }`}
           >
-            Margin: {todayMargin}%
+            Margin: {heroPeriod === "today" ? todayMargin : monthMargin}%
           </span>
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-slate-300 pt-2 border-t border-white/10 relative z-10">
-          <span>Sales: <b className="text-emerald-mint font-bold">Rs. {sale.toLocaleString()}</b></span>
-          <span className="text-slate-500">•</span>
-          <span>Kharcha: <b className="text-rose-crimson font-bold">Rs. {totalExp.toLocaleString()}</b></span>
+        {/* Detailed Financial Breakdown Rows (Both Today and Month) */}
+        <div
+          className="pt-2.5 border-t relative z-10 flex flex-col gap-1.5 text-xs transition-colors"
+          style={{ borderColor: T.border }}
+        >
+          {/* Today Row */}
+          <div className="flex items-center justify-between flex-wrap gap-1">
+            <span
+              className="font-semibold flex items-center gap-1"
+              style={{ color: T.textMuted }}
+            >
+              <span>Today:</span>
+            </span>
+            <div className="flex items-center gap-2">
+              <span style={{ color: T.text }}>
+                Sales: <b className="text-emerald-600 dark:text-emerald-mint font-bold">Rs. {sale.toLocaleString()}</b>
+              </span>
+              <span style={{ color: T.textMuted }}>•</span>
+              <span style={{ color: T.text }}>
+                Kharcha: <b className="text-rose-600 dark:text-rose-crimson font-bold">Rs. {totalExp.toLocaleString()}</b>
+              </span>
+              <span style={{ color: T.textMuted }}>•</span>
+              <span style={{ color: T.text }}>
+                Profit: <b className={netProfit >= 0 ? "text-emerald-600 dark:text-emerald-mint font-bold" : "text-rose-600 dark:text-rose-crimson font-bold"}>
+                  Rs. {netProfit.toLocaleString()}
+                </b>
+              </span>
+            </div>
+          </div>
+
+          {/* Month Row */}
+          <div className="flex items-center justify-between flex-wrap gap-1">
+            <span
+              className="font-semibold flex items-center gap-1"
+              style={{ color: T.textMuted }}
+            >
+              <span>Month ({ym}):</span>
+            </span>
+            <div className="flex items-center gap-2">
+              <span style={{ color: T.text }}>
+                Sales: <b className="text-emerald-600 dark:text-emerald-mint font-bold">Rs. {mSale.toLocaleString()}</b>
+              </span>
+              <span style={{ color: T.textMuted }}>•</span>
+              <span style={{ color: T.text }}>
+                Kharcha: <b className="text-rose-600 dark:text-rose-crimson font-bold">Rs. {mExp.toLocaleString()}</b>
+              </span>
+              <span style={{ color: T.textMuted }}>•</span>
+              <span style={{ color: T.text }}>
+                Profit: <b className={mProfit >= 0 ? "text-emerald-600 dark:text-emerald-mint font-bold" : "text-rose-600 dark:text-rose-crimson font-bold"}>
+                  Rs. {mProfit.toLocaleString()}
+                </b>
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
