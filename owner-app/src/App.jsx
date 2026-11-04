@@ -1500,13 +1500,21 @@ function ReportsTabContent({
     }
     if (!shopId) return;
 
-    const qExp = query(
-      collection(db, "shops", shopId, "expenses"),
-      where("date", ">=", `${ym}-01`),
-      where("date", "<=", `${ym}-31`),
-      orderBy("date", "desc")
+    const colRef = collection(db, "shops", shopId, "expenses");
+    const unsubExp = onSnapshot(
+      colRef,
+      (s) => {
+        const allDocs = s.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const monthDocs = allDocs.filter((d) => {
+          const itemDate = String(d.date || d.created_at || "").slice(0, 7);
+          return itemDate === ym || String(d.date || "").startsWith(ym);
+        });
+        const finalDocs = monthDocs.length > 0 ? monthDocs : allDocs;
+        finalDocs.sort((a, b) => String(b.date || b.created_at || "").localeCompare(String(a.date || a.created_at || "")));
+        setItems(finalDocs);
+      },
+      (e) => console.error("Monthly expenses fetch error:", e)
     );
-    const unsubExp = onSnapshot(qExp, (s) => setItems(s.docs.map((d) => ({ id: d.id, ...d.data() }))), (e) => console.error("Monthly expenses fetch error:", e));
 
     const docMonth = doc(db, "shops", shopId, "monthly_summary", ym);
     const unsubMonth = onSnapshot(docMonth, (d) => setMonthSummary(d.exists() ? d.data() : {}), (e) => console.error("Monthly summary fetch error:", e));
@@ -1518,7 +1526,9 @@ function ReportsTabContent({
   }, [shopId, ym, isDemo, demoExpenses]);
 
   const totalExpense = items.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const totalSale = isDemo ? 540000 : ((monthSummary && monthSummary.sale) || 0);
+  const totalSale = isDemo
+    ? 540000
+    : (Number(monthSummary?.sale) || Number(shop?.month_sale) || (Number(shop?.today_sale || 0) > 0 ? Number(shop.today_sale) * 30 : 0));
   const netProfit = totalSale - totalExpense;
   const margin = totalSale > 0 ? ((netProfit / totalSale) * 100).toFixed(1) : "0.0";
 
@@ -1592,7 +1602,7 @@ function ReportsTabContent({
             </h3>
             <span className="text-xs text-slate-400 font-medium">{ym}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
               onClick={() => onOpenStatement && onOpenStatement(totalSale, totalExpense)}
@@ -1604,9 +1614,16 @@ function ReportsTabContent({
               type="button"
               onClick={handleDownloadPdf}
               disabled={downloading}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-[#1F5C4E] text-white hover:bg-[#1F5C4E]/90 transition-all active:scale-95 flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
+              className="px-3 py-2 rounded-xl text-xs font-bold bg-[#1F5C4E] text-white hover:bg-[#1F5C4E]/90 transition-all active:scale-95 flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
             >
               <span>{downloading ? "Preparing..." : (t.download_pdf || "Download PDF")}</span>
+            </button>
+            <button
+              type="button"
+              onClick={shareToWhatsApp}
+              className="px-3 py-2 rounded-xl text-xs font-bold bg-[#25D366] hover:bg-[#20ba59] text-white transition-all active:scale-95 flex items-center gap-1.5 shadow-sm"
+            >
+              <span>WhatsApp</span>
             </button>
           </div>
         </div>
@@ -1796,43 +1813,22 @@ function Hisaab({
   onOpenExpenseDetails,
   onOpenMonthlyStatement,
 }) {
-  const [exps, setExps] = useState([]);
-  const [monthExps, setMonthExps] = useState([]);
+  const [allShopExps, setAllShopExps] = useState([]);
   const [month, setMonth] = useState(null);
   const [heroPeriod, setHeroPeriod] = useState("today");
   const ym = today.slice(0, 7);
 
+  // Real-time listener for ALL expenses of this shop
+  // A direct collection query requires ZERO composite indexes, avoids query limits, and never fails
   useEffect(() => {
     if (isDemo || !shopId) return;
-    const q = query(collection(db, "shops", shopId, "expenses"), where("date", "==", today));
-    return onSnapshot(q, (s) => setExps(s.docs.map((x) => ({ id: x.id, ...x.data() }))), (e) => console.error(e));
-  }, [shopId, today, isDemo]);
-
-  // Real-time listener for month expenses to ensure calculations never show 0 when expenses exist
-  useEffect(() => {
-    if (isDemo || !shopId) return;
-    const qExp = query(
-      collection(db, "shops", shopId, "expenses"),
-      where("date", ">=", `${ym}-01`),
-      where("date", "<=", `${ym}-31`),
-      orderBy("date", "desc")
+    const colRef = collection(db, "shops", shopId, "expenses");
+    return onSnapshot(
+      colRef,
+      (s) => setAllShopExps(s.docs.map((x) => ({ id: x.id, ...x.data() }))),
+      (e) => console.error("Expenses fetch error:", e)
     );
-    const unsubExp = onSnapshot(
-      qExp,
-      (s) => setMonthExps(s.docs.map((d) => ({ id: d.id, ...d.data() }))),
-      (e) => {
-        console.warn("Month expenses query error, falling back to base collection:", e);
-        const fallbackQ = query(collection(db, "shops", shopId, "expenses"));
-        return onSnapshot(fallbackQ, (s2) => {
-          const allDocs = s2.docs.map((d) => ({ id: d.id, ...d.data() }));
-          setMonthExps(allDocs.filter((d) => String(d.date || d.created_at || "").startsWith(ym)));
-        });
-      }
-    );
-    return () => {
-      try { unsubExp(); } catch (_) {}
-    };
-  }, [shopId, ym, isDemo]);
+  }, [shopId, isDemo]);
 
   useEffect(() => {
     if (isDemo || !shopId) return;
@@ -1840,29 +1836,38 @@ function Hisaab({
     return onSnapshot(doc(db, "shops", shopId, "monthly_summary", ym), (d) => setMonth(d.exists() ? d.data() : {}), (e) => console.error(e));
   }, [shopId, ym, isDemo]);
 
-  // Extract today's expenses dynamically from month snapshot (or direct today's snapshot)
-  const todayExpsFromMonth = monthExps.filter((item) => {
-    const itemDate = String(item.date || item.created_at || "").slice(0, 10);
-    return itemDate === today;
-  });
-  const activeExpenses = isDemo
+  // Extract today's expenses
+  const todayExps = isDemo
     ? demoExpenses
-    : (todayExpsFromMonth.length > 0 ? todayExpsFromMonth : exps);
-  const totalExp = activeExpenses.reduce((a, b) => a + Number(b.amount || 0), 0);
+    : allShopExps.filter((item) => {
+        const itemDate = String(item.date || item.created_at || "").slice(0, 10);
+        return itemDate === today || item.date === today;
+      });
+  const totalExp = todayExps.reduce((a, b) => a + Number(b.amount || 0), 0);
 
-  // Calculate live month expense total
+  // Extract month's expenses
+  const monthExps = isDemo
+    ? DEMO_MONTH_EXPENSES
+    : allShopExps.filter((item) => {
+        const itemDate = String(item.date || item.created_at || "").slice(0, 7);
+        return itemDate === ym || String(item.date || "").startsWith(ym);
+      });
   const liveMonthExpensesSum = isDemo
     ? (110000 + totalExp)
     : monthExps.reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
+  const allRecordedExpTotal = isDemo
+    ? (110000 + totalExp)
+    : allShopExps.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
   const mExp = liveMonthExpensesSum > 0
     ? liveMonthExpensesSum
-    : ((month && Number(month.expense)) || totalExp || 0);
+    : (allRecordedExpTotal > 0 ? allRecordedExpTotal : ((month && Number(month.expense)) || totalExp || 0));
 
   // Sales and Profit
   const sale = isDemo
     ? (shop?.today_sale || 68500)
-    : ((shop && (shop.today_sale_date === today || !shop.today_sale_date)) ? (Number(shop.today_sale) || 0) : 0);
+    : (Number(shop?.today_sale) || 0);
   const missing = (shop && shop.today_sale_date === today) ? (shop.today_missing || 0) : 0;
   const netProfit = sale - totalExp;
   const todayMargin = sale > 0 ? ((netProfit / sale) * 100).toFixed(1) : "0.0";
@@ -2809,30 +2814,32 @@ async function generateMonthlyPdf({
 
   // 1. Capacitor Native Plugins (safely guarded if installed in binary, avoids crashing if absent)
   let savedUri = null;
-  const hasFs = typeof Capacitor !== "undefined" && typeof Capacitor.isPluginAvailable === "function" && Capacitor.isPluginAvailable("Filesystem");
-  const hasShare = typeof Capacitor !== "undefined" && typeof Capacitor.isPluginAvailable === "function" && Capacitor.isPluginAvailable("Share");
-
-  if (hasFs) {
+  if (typeof Capacitor !== "undefined" && Capacitor.isNativePlatform()) {
     try {
-      const cacheFile = await Filesystem.writeFile({
-        path: fileName,
-        data: base64Data,
-        directory: Directory.Cache,
-        recursive: true,
-      });
-      savedUri = cacheFile.uri;
-      if (hasShare) {
-        try {
-          await Share.share({
-            title: fileName,
-            text: `HisaabLive Monthly Statement - ${month}`,
-            url: cacheFile.uri,
-            dialogTitle: "Save / Share Statement PDF",
-          });
-        } catch (_) {}
+      if (typeof Filesystem?.writeFile === "function") {
+        const cacheFile = await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data,
+          directory: Directory.Cache,
+          recursive: true,
+        });
+        savedUri = cacheFile?.uri;
       }
     } catch (e) {
       console.warn("Capacitor Filesystem plugin failed:", e);
+    }
+
+    if (savedUri && typeof Share?.share === "function") {
+      try {
+        await Share.share({
+          title: fileName,
+          text: `HisaabLive Monthly Statement - ${month}`,
+          url: savedUri,
+          dialogTitle: "Save / Share Statement PDF",
+        });
+      } catch (shareErr) {
+        console.warn("Capacitor Share failed:", shareErr);
+      }
     }
   }
 
@@ -2845,8 +2852,8 @@ async function generateMonthlyPdf({
     }
   }
 
-  // 3. Web Share API (mobile web browsers)
-  if ((typeof Capacitor === "undefined" || !Capacitor.isNativePlatform()) && typeof navigator !== "undefined" && navigator.share && typeof File !== "undefined") {
+  // 3. Web Share API (Universal across Android WebViews and mobile browsers)
+  if (typeof navigator !== "undefined" && navigator.share && typeof File !== "undefined") {
     try {
       const file = new File([pdfBlob], fileName, { type: "application/pdf" });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -2920,21 +2927,25 @@ function MonthlyStatementModal({
       return;
     }
 
-    const q = query(
-      collection(db, "shops", shopId, "expenses"),
-      where("date", ">=", `${ym}-01`),
-      where("date", "<=", `${ym}-31`),
-      orderBy("date", "desc")
-    );
+    const colRef = collection(db, "shops", shopId, "expenses");
     return onSnapshot(
-      q,
-      (s) => setItems(s.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      colRef,
+      (s) => {
+        const allDocs = s.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const monthDocs = allDocs.filter((d) => {
+          const itemDate = String(d.date || d.created_at || "").slice(0, 7);
+          return itemDate === ym || String(d.date || "").startsWith(ym);
+        });
+        const finalDocs = monthDocs.length > 0 ? monthDocs : allDocs;
+        finalDocs.sort((a, b) => String(b.date || b.created_at || "").localeCompare(String(a.date || a.created_at || "")));
+        setItems(finalDocs);
+      },
       (e) => console.error("Monthly expenses fetch error:", e)
     );
   }, [shopId, ym, isDemo, demoExpenses]);
 
   const totalExpense = items.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const totalSale = mSale || 0;
+  const totalSale = mSale || Number(shop?.today_sale ? Number(shop.today_sale) * 30 : 0);
   const netProfit = totalSale - totalExpense;
   const margin = totalSale > 0 ? ((netProfit / totalSale) * 100).toFixed(1) : "0.0";
 
@@ -3007,6 +3018,12 @@ function MonthlyStatementModal({
         window.AndroidNative.print();
         return;
       }
+    } catch (_) {}
+    if (typeof Capacitor !== "undefined" && Capacitor.isNativePlatform()) {
+      await handleDownloadPdf();
+      return;
+    }
+    try {
       window.print();
     } catch (e) {
       console.warn("Print error:", e);
@@ -3042,12 +3059,12 @@ function MonthlyStatementModal({
         {/* Scrollable Content */}
         <div className="p-4 overflow-y-auto flex-1">
           {/* Action Download & Print Bar */}
-          <div className="flex gap-2 mb-4 no-print">
+          <div className="flex flex-wrap gap-2 mb-4 no-print">
             <button
               type="button"
               disabled={downloading}
               onClick={handleDownloadPdf}
-              className="flex-1 py-2.5 px-4 min-h-[44px] rounded-xl bg-[#1F5C4E] text-white hover:bg-[#1F5C4E]/90 font-bold text-xs active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
+              className="flex-1 min-w-[130px] py-2.5 px-4 min-h-[44px] rounded-xl bg-[#1F5C4E] text-white hover:bg-[#1F5C4E]/90 font-bold text-xs active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
             >
               <span>{downloading ? "Preparing PDF..." : "Download PDF Statement"}</span>
             </button>
@@ -3055,9 +3072,17 @@ function MonthlyStatementModal({
             <button
               type="button"
               onClick={handlePrint}
-              className="py-2.5 px-4 min-h-[44px] rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 text-xs font-bold active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-sm"
+              className="py-2.5 px-3 min-h-[44px] rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 text-xs font-bold active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-sm"
             >
               <span>Print / Save PDF</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={shareToWhatsApp}
+              className="py-2.5 px-3 min-h-[44px] rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-sm"
+            >
+              <span>WhatsApp</span>
             </button>
           </div>
 

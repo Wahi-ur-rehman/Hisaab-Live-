@@ -1,3 +1,4 @@
+// HisaabLive Super Admin Dashboard - Real-time Shop Management & Dynamic Inventory Toggle
 import { useState, useEffect, useCallback } from "react";
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
