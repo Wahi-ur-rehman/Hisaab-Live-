@@ -1621,22 +1621,23 @@ function ReportsTabContent({
               <button
                 type="button"
                 onClick={async () => {
-                  if (typeof Capacitor !== "undefined" && Capacitor.isNativePlatform()) {
-                    if (statementReady.uri) {
-                      try {
-                        await Share.share({
-                          title: statementReady.fileName,
-                          text: `HisaabLive Monthly Statement - ${ym}`,
-                          url: statementReady.uri,
-                          dialogTitle: "Save / Share Statement PDF",
-                        });
-                        return;
-                      } catch (_) {}
-                    }
+                  const hasShare = typeof Capacitor !== "undefined" && typeof Capacitor.isPluginAvailable === "function" && Capacitor.isPluginAvailable("Share");
+                  if (hasShare && statementReady.uri) {
+                    try {
+                      await Share.share({
+                        title: statementReady.fileName,
+                        text: `HisaabLive Monthly Statement - ${ym}`,
+                        url: statementReady.uri,
+                        dialogTitle: "Save / Share Statement PDF",
+                      });
+                      return;
+                    } catch (_) {}
                   }
                   if (typeof window !== "undefined" && window.AndroidNative?.savePdf) {
-                    window.AndroidNative.savePdf(statementReady.base64Data, statementReady.fileName);
-                    return;
+                    try {
+                      window.AndroidNative.savePdf(statementReady.base64Data, statementReady.fileName);
+                      return;
+                    } catch (_) {}
                   }
                   if (typeof navigator !== "undefined" && navigator.share && typeof File !== "undefined") {
                     try {
@@ -1647,6 +1648,9 @@ function ReportsTabContent({
                       }
                     } catch (_) {}
                   }
+                  try {
+                    window.open(statementReady.blobUrl, "_blank");
+                  } catch (_) {}
                   const a = document.createElement("a");
                   a.href = statementReady.blobUrl;
                   a.download = statementReady.fileName;
@@ -2803,48 +2807,32 @@ async function generateMonthlyPdf({
   const dataUri = doc.output("datauristring");
   const base64Data = (dataUri && dataUri.includes(",")) ? dataUri.split(",")[1] : "";
 
-  // 1. Capacitor Native Platform (guaranteed for Android / iOS APK)
+  // 1. Capacitor Native Plugins (safely guarded if installed in binary, avoids crashing if absent)
   let savedUri = null;
-  if (typeof Capacitor !== "undefined" && Capacitor.isNativePlatform()) {
+  const hasFs = typeof Capacitor !== "undefined" && typeof Capacitor.isPluginAvailable === "function" && Capacitor.isPluginAvailable("Filesystem");
+  const hasShare = typeof Capacitor !== "undefined" && typeof Capacitor.isPluginAvailable === "function" && Capacitor.isPluginAvailable("Share");
+
+  if (hasFs) {
     try {
-      const saved = await Filesystem.writeFile({
+      const cacheFile = await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
-        directory: Directory.Documents,
+        directory: Directory.Cache,
         recursive: true,
       });
-      savedUri = saved.uri;
-      try {
-        await Share.share({
-          title: fileName,
-          text: `HisaabLive Monthly Statement - ${month}`,
-          url: saved.uri,
-          dialogTitle: "Save / Share Statement PDF",
-        });
-      } catch (shareErr) {
-        if (shareErr && shareErr.name !== "AbortError") {
-          console.warn("Capacitor Share trigger error:", shareErr);
-        }
+      savedUri = cacheFile.uri;
+      if (hasShare) {
+        try {
+          await Share.share({
+            title: fileName,
+            text: `HisaabLive Monthly Statement - ${month}`,
+            url: cacheFile.uri,
+            dialogTitle: "Save / Share Statement PDF",
+          });
+        } catch (_) {}
       }
-    } catch (fsErr) {
-      console.warn("Capacitor Filesystem Documents failed, falling back to Cache:", fsErr);
-      try {
-        const cacheFile = await Filesystem.writeFile({
-          path: fileName,
-          data: base64Data,
-          directory: Directory.Cache,
-          recursive: true,
-        });
-        savedUri = cacheFile.uri;
-        await Share.share({
-          title: fileName,
-          text: `HisaabLive Monthly Statement - ${month}`,
-          url: cacheFile.uri,
-          dialogTitle: "Save / Share Statement PDF",
-        });
-      } catch (cacheErr) {
-        console.warn("Capacitor Cache save failed:", cacheErr);
-      }
+    } catch (e) {
+      console.warn("Capacitor Filesystem plugin failed:", e);
     }
   }
 
@@ -3019,14 +3007,9 @@ function MonthlyStatementModal({
         window.AndroidNative.print();
         return;
       }
-      if (typeof Capacitor !== "undefined" && Capacitor.isNativePlatform()) {
-        await handleDownloadPdf();
-        return;
-      }
       window.print();
     } catch (e) {
       console.warn("Print error:", e);
-      await handleDownloadPdf();
     }
   };
 
@@ -3089,22 +3072,23 @@ function MonthlyStatementModal({
                 <button
                   type="button"
                   onClick={async () => {
-                    if (typeof Capacitor !== "undefined" && Capacitor.isNativePlatform()) {
-                      if (statementReady.uri) {
-                        try {
-                          await Share.share({
-                            title: statementReady.fileName,
-                            text: `HisaabLive Monthly Statement - ${ym}`,
-                            url: statementReady.uri,
-                            dialogTitle: "Save / Share Statement PDF",
-                          });
-                          return;
-                        } catch (_) {}
-                      }
+                    const hasShare = typeof Capacitor !== "undefined" && typeof Capacitor.isPluginAvailable === "function" && Capacitor.isPluginAvailable("Share");
+                    if (hasShare && statementReady.uri) {
+                      try {
+                        await Share.share({
+                          title: statementReady.fileName,
+                          text: `HisaabLive Monthly Statement - ${ym}`,
+                          url: statementReady.uri,
+                          dialogTitle: "Save / Share Statement PDF",
+                        });
+                        return;
+                      } catch (_) {}
                     }
                     if (typeof window !== "undefined" && window.AndroidNative?.savePdf) {
-                      window.AndroidNative.savePdf(statementReady.base64Data, statementReady.fileName);
-                      return;
+                      try {
+                        window.AndroidNative.savePdf(statementReady.base64Data, statementReady.fileName);
+                        return;
+                      } catch (_) {}
                     }
                     if (typeof navigator !== "undefined" && navigator.share && typeof File !== "undefined") {
                       try {
@@ -3115,6 +3099,9 @@ function MonthlyStatementModal({
                         }
                       } catch (_) {}
                     }
+                    try {
+                      window.open(statementReady.blobUrl, "_blank");
+                    } catch (_) {}
                     const a = document.createElement("a");
                     a.href = statementReady.blobUrl;
                     a.download = statementReady.fileName;
