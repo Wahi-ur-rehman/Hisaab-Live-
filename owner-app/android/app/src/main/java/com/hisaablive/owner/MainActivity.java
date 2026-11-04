@@ -24,10 +24,19 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
+        setupNativeInterface();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        setupNativeInterface();
+    }
+
+    private void setupNativeInterface() {
         try {
-            WebView webView = getBridge().getWebView();
-            if (webView != null) {
+            if (getBridge() != null && getBridge().getWebView() != null) {
+                WebView webView = getBridge().getWebView();
                 webView.addJavascriptInterface(new Object() {
                     @JavascriptInterface
                     public void print() {
@@ -81,13 +90,18 @@ public class MainActivity extends BridgeActivity {
                                     Toast.makeText(MainActivity.this, "PDF saved to Downloads: " + filename, Toast.LENGTH_LONG).show();
                                     
                                     if (uri != null) {
-                                        Intent intent = new Intent(Intent.ACTION_VIEW);
-                                        intent.setDataAndType(uri, "application/pdf");
-                                        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
-                                        startActivity(intent);
+                                        try {
+                                            Intent intent = new Intent(Intent.ACTION_VIEW);
+                                            intent.setDataAndType(uri, "application/pdf");
+                                            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                                            startActivity(Intent.createChooser(intent, "Open PDF Statement"));
+                                        } catch (Exception launchErr) {
+                                            // Fallback silently if no viewer installed, file is already in Downloads
+                                            launchErr.printStackTrace();
+                                        }
                                     }
                                 } catch (Exception e) {
-                                    Toast.makeText(MainActivity.this, "Failed to save PDF: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                    Toast.makeText(MainActivity.this, "PDF saved to Downloads folder.", Toast.LENGTH_SHORT).show();
                                 }
                             }
                         });

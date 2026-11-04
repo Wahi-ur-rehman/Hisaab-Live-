@@ -7,6 +7,9 @@ import { getMessaging, getToken, isSupported } from "firebase/messaging";
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 import lang from "./language.json";
 import { jsPDF } from "jspdf";
+import { Capacitor } from "@capacitor/core";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
 import { LanguageProvider, useLanguage } from "./context/LanguageContext";
 import Header from "./components/common/Header";
 import TabBar from "./components/common/TabBar";
@@ -250,7 +253,6 @@ function AppContent() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // Swipe Gestures Between Primary Tabs
-  const TABS_ORDER = ["hisaab", "expenses", "khata", "inventory", "reports"];
   const touchStartRef = React.useRef({ x: 0, y: 0, time: 0 });
 
   const handleTouchStart = (e) => {
@@ -282,17 +284,21 @@ function AppContent() {
       return;
     }
 
-    const currentIndex = TABS_ORDER.indexOf(view);
+    const activeTabsOrder = isInventoryEnabled
+      ? ["hisaab", "expenses", "khata", "inventory", "reports"]
+      : ["hisaab", "expenses", "khata", "reports"];
+
+    const currentIndex = activeTabsOrder.indexOf(view);
     if (currentIndex === -1) return;
 
     // LTR vs RTL swipe direction awareness
     // In LTR: swipe left (deltaX < 0) -> next tab; swipe right (deltaX > 0) -> previous tab
     const isNext = isRtl ? deltaX > 0 : deltaX < 0;
 
-    if (isNext && currentIndex < TABS_ORDER.length - 1) {
-      setView(TABS_ORDER[currentIndex + 1]);
+    if (isNext && currentIndex < activeTabsOrder.length - 1) {
+      setView(activeTabsOrder[currentIndex + 1]);
     } else if (!isNext && currentIndex > 0) {
-      setView(TABS_ORDER[currentIndex - 1]);
+      setView(activeTabsOrder[currentIndex - 1]);
     }
   };
   
@@ -528,6 +534,13 @@ function AppContent() {
   // Firestore live inventory listener
   const [inventory, setInventory] = useState([]);
   const isInventoryEnabled = isDemo ? Boolean(demoShop?.inventory_enabled ?? true) : Boolean(shop?.inventory_enabled);
+
+  // Auto-redirect out of inventory tab if feature is disabled by admin in real time
+  useEffect(() => {
+    if (!isInventoryEnabled && view === "inventory") {
+      setView("hisaab");
+    }
+  }, [isInventoryEnabled, view]);
 
   useEffect(() => {
     if (isDemo) {
@@ -1102,11 +1115,12 @@ function AppContent() {
           <Notify shop={shop} t={t} T={T} isDemo={isDemo} />
         </div>
 
-        {/* Fixed 4-Tab Bottom Navigation Bar */}
+        {/* Bottom Navigation Bar */}
         <TabBar
           activeTab={view}
           onTabChange={(newTab) => setView(newTab)}
           unseenAlerts={unseen}
+          isInventoryEnabled={isInventoryEnabled}
         />
 
         {/* Security Alerts Modal */}
@@ -1766,25 +1780,71 @@ function Hisaab({
   onOpenMonthlyStatement,
 }) {
   const [exps, setExps] = useState([]);
+  const [monthExps, setMonthExps] = useState([]);
   const [month, setMonth] = useState(null);
   const ym = today.slice(0, 7);
 
   useEffect(() => {
-    if (isDemo) return;
+    if (isDemo || !shopId) return;
     const q = query(collection(db, "shops", shopId, "expenses"), where("date", "==", today));
-    return onSnapshot(q, (s) => setExps(s.docs.map((x) => x.data())), (e) => console.error(e));
+    return onSnapshot(q, (s) => setExps(s.docs.map((x) => ({ id: x.id, ...x.data() }))), (e) => console.error(e));
   }, [shopId, today, isDemo]);
 
+  // Real-time listener for month expenses to ensure calculations never show 0 when expenses exist
   useEffect(() => {
-    if (isDemo) return;
+    if (isDemo || !shopId) return;
+    const qExp = query(
+      collection(db, "shops", shopId, "expenses"),
+      where("date", ">=", `${ym}-01`),
+      where("date", "<=", `${ym}-31`),
+      orderBy("date", "desc")
+    );
+    const unsubExp = onSnapshot(
+      qExp,
+      (s) => setMonthExps(s.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      (e) => {
+        console.warn("Month expenses query error, falling back to base collection:", e);
+        const fallbackQ = query(collection(db, "shops", shopId, "expenses"));
+        return onSnapshot(fallbackQ, (s2) => {
+          const allDocs = s2.docs.map((d) => ({ id: d.id, ...d.data() }));
+          setMonthExps(allDocs.filter((d) => String(d.date || d.created_at || "").startsWith(ym)));
+        });
+      }
+    );
+    return () => {
+      try { unsubExp(); } catch (_) {}
+    };
+  }, [shopId, ym, isDemo]);
+
+  useEffect(() => {
+    if (isDemo || !shopId) return;
     setMonth(null);
     return onSnapshot(doc(db, "shops", shopId, "monthly_summary", ym), (d) => setMonth(d.exists() ? d.data() : {}), (e) => console.error(e));
   }, [shopId, ym, isDemo]);
 
-  const activeExpenses = isDemo ? demoExpenses : exps;
+  // Extract today's expenses dynamically from month snapshot (or direct today's snapshot)
+  const todayExpsFromMonth = monthExps.filter((item) => {
+    const itemDate = String(item.date || item.created_at || "").slice(0, 10);
+    return itemDate === today;
+  });
+  const activeExpenses = isDemo
+    ? demoExpenses
+    : (todayExpsFromMonth.length > 0 ? todayExpsFromMonth : exps);
   const totalExp = activeExpenses.reduce((a, b) => a + Number(b.amount || 0), 0);
-  
-  const sale = (shop && shop.today_sale_date === today) ? (shop.today_sale || 0) : 0;
+
+  // Calculate live month expense total
+  const liveMonthExpensesSum = isDemo
+    ? (110000 + totalExp)
+    : monthExps.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  const mExp = liveMonthExpensesSum > 0
+    ? liveMonthExpensesSum
+    : ((month && Number(month.expense)) || totalExp || 0);
+
+  // Sales and Profit
+  const sale = isDemo
+    ? (shop?.today_sale || 68500)
+    : ((shop && (shop.today_sale_date === today || !shop.today_sale_date)) ? (Number(shop.today_sale) || 0) : 0);
   const missing = (shop && shop.today_sale_date === today) ? (shop.today_missing || 0) : 0;
   const netProfit = sale - totalExp;
   const todayMargin = sale > 0 ? ((netProfit / sale) * 100).toFixed(1) : "0.0";
@@ -1799,8 +1859,9 @@ function Hisaab({
         ? customers.reduce((a, c) => a + (c.balance < 0 ? Math.abs(c.balance) : 0), 0)
         : ((shop && shop.khata_advance) || 0));
 
-  const mSale = isDemo ? 540000 : ((month && month.sale) || 0);
-  const mExp = isDemo ? (110000 + totalExp) : ((month && month.expense) || 0);
+  const mSale = isDemo
+    ? 540000
+    : ((month && Number(month.sale)) || (shop && (shop.today_sale_date === today || shop.today_sale_date?.startsWith(ym)) ? Number(shop.today_sale) : 0) || Number(shop?.today_sale || 0));
 
   return (
     <div>
@@ -2631,7 +2692,52 @@ async function generateMonthlyPdf({
   const dataUri = doc.output("datauristring");
   const base64Data = (dataUri && dataUri.includes(",")) ? dataUri.split(",")[1] : "";
 
-  // 1. Android Native Bridge (saves directly to Downloads and opens)
+  // 1. Capacitor Native Platform (guaranteed for Android / iOS APK)
+  let savedUri = null;
+  if (typeof Capacitor !== "undefined" && Capacitor.isNativePlatform()) {
+    try {
+      const saved = await Filesystem.writeFile({
+        path: fileName,
+        data: base64Data,
+        directory: Directory.Documents,
+        recursive: true,
+      });
+      savedUri = saved.uri;
+      try {
+        await Share.share({
+          title: fileName,
+          text: `HisaabLive Monthly Statement - ${month}`,
+          url: saved.uri,
+          dialogTitle: "Save / Share Statement PDF",
+        });
+      } catch (shareErr) {
+        if (shareErr && shareErr.name !== "AbortError") {
+          console.warn("Capacitor Share trigger error:", shareErr);
+        }
+      }
+    } catch (fsErr) {
+      console.warn("Capacitor Filesystem Documents failed, falling back to Cache:", fsErr);
+      try {
+        const cacheFile = await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data,
+          directory: Directory.Cache,
+          recursive: true,
+        });
+        savedUri = cacheFile.uri;
+        await Share.share({
+          title: fileName,
+          text: `HisaabLive Monthly Statement - ${month}`,
+          url: cacheFile.uri,
+          dialogTitle: "Save / Share Statement PDF",
+        });
+      } catch (cacheErr) {
+        console.warn("Capacitor Cache save failed:", cacheErr);
+      }
+    }
+  }
+
+  // 2. Android Native Bridge (saves directly to Downloads and opens)
   if (typeof window !== "undefined" && window.AndroidNative && typeof window.AndroidNative.savePdf === "function") {
     try {
       window.AndroidNative.savePdf(base64Data, fileName);
@@ -2640,7 +2746,25 @@ async function generateMonthlyPdf({
     }
   }
 
-  // 2. Standard Blob Anchor download (universal desktop and mobile browsers)
+  // 3. Web Share API (mobile web browsers)
+  if ((typeof Capacitor === "undefined" || !Capacitor.isNativePlatform()) && typeof navigator !== "undefined" && navigator.share && typeof File !== "undefined") {
+    try {
+      const file = new File([pdfBlob], fileName, { type: "application/pdf" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: fileName,
+          text: `HisaabLive Monthly Statement - ${month}`,
+          files: [file],
+        });
+      }
+    } catch (shareErr) {
+      if (shareErr && shareErr.name !== "AbortError") {
+        console.warn("Web Share API error:", shareErr);
+      }
+    }
+  }
+
+  // 4. Standard Blob Anchor download (universal desktop and mobile browsers)
   try {
     const link = document.createElement("a");
     link.href = blobUrl;
@@ -2655,14 +2779,14 @@ async function generateMonthlyPdf({
     console.warn("Direct blob download error:", err);
   }
 
-  // 3. jsPDF native save() method
+  // 5. jsPDF native save() method
   try {
     doc.save(fileName);
   } catch (err) {
     console.warn("jsPDF save error:", err);
   }
 
-  return { blobUrl, pdfBlob, base64Data, fileName, doc };
+  return { blobUrl, pdfBlob, base64Data, fileName, uri: savedUri, doc };
 }
 
 // ---------------------------------------------------------------------------
@@ -2778,15 +2902,20 @@ function MonthlyStatementModal({
     window.open(url, "_blank");
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     try {
       if (typeof window !== "undefined" && window.AndroidNative && typeof window.AndroidNative.print === "function") {
         window.AndroidNative.print();
         return;
       }
+      if (typeof Capacitor !== "undefined" && Capacitor.isNativePlatform()) {
+        await handleDownloadPdf();
+        return;
+      }
       window.print();
     } catch (e) {
       console.warn("Print error:", e);
+      await handleDownloadPdf();
     }
   };
 
@@ -2849,6 +2978,19 @@ function MonthlyStatementModal({
                 <button
                   type="button"
                   onClick={async () => {
+                    if (typeof Capacitor !== "undefined" && Capacitor.isNativePlatform()) {
+                      if (statementReady.uri) {
+                        try {
+                          await Share.share({
+                            title: statementReady.fileName,
+                            text: `HisaabLive Monthly Statement - ${ym}`,
+                            url: statementReady.uri,
+                            dialogTitle: "Save / Share Statement PDF",
+                          });
+                          return;
+                        } catch (_) {}
+                      }
+                    }
                     if (typeof window !== "undefined" && window.AndroidNative?.savePdf) {
                       window.AndroidNative.savePdf(statementReady.base64Data, statementReady.fileName);
                       return;

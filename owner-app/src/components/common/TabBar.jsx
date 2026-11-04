@@ -123,10 +123,16 @@ export default function TabBar({
   activeTab = 'hisaab',
   onTabChange,
   unseenAlerts = 0,
+  isInventoryEnabled = true,
 }) {
   const { lang, t, isRtl } = useLanguage();
   const activeTabRef = React.useRef(null);
   const navContainerRef = React.useRef(null);
+
+  // Filter tabs dynamically based on feature flag
+  const visibleTabs = TABS.filter(
+    (tab) => tab.id !== 'inventory' || isInventoryEnabled
+  );
 
   // Smoothly center the active tab into view whenever tab changes
   React.useEffect(() => {
@@ -153,7 +159,7 @@ export default function TabBar({
           msOverflowStyle: 'none',
         }}
       >
-        {TABS.map((tab) => {
+        {visibleTabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const label = isRtl
             ? (t[tab.key] || tab.labelUr)
